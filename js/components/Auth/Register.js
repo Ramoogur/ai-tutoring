@@ -83,7 +83,7 @@ const Register = ({ navigateTo }) => {
         </div>
 
         {accountType === 'student' && (
-          <>
+          <div>
             <div className="form-group">
               <label htmlFor="fullName">Full Name</label>
               <input
@@ -117,7 +117,7 @@ const Register = ({ navigateTo }) => {
                 <option value="3">Grade 3</option>
               </select>
             </div>
-          </>
+          </div>
         )}
 
         <div className="form-group">

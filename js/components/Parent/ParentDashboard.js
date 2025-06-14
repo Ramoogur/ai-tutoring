@@ -301,7 +301,7 @@ const ParentDashboard = ({ user, navigateTo }) => {
               
               <div className="student-details">
                 {selectedStudent && (
-                  <>
+                  <div>
                     <div className="student-header">
                       <h2>{selectedStudent.username}'s Progress</h2>
                       <div className="student-grade-badge">Grade {selectedStudent.grade}</div>
@@ -312,7 +312,7 @@ const ParentDashboard = ({ user, navigateTo }) => {
                       {renderTopicBreakdown()}
                       {renderRecentActivity()}
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
