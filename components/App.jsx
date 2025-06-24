@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LandingPage from './Landing/LandingPage';
 import Login from './Auth/Login';
 import Register from './Auth/Register';
-import Dashboard from './Dashboard/Dashboard';
+import DashboardRouter from './Dashboard/DashboardRouter';
 import ParentDashboard from './Parent/ParentDashboard';
 import Quiz from './Quiz/Quiz';
 
@@ -11,7 +11,6 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [currentPage, setCurrentPage] = useState('landing');
   const [quizTopic, setQuizTopic] = useState(null);
-  const [quizDifficulty, setQuizDifficulty] = useState(null);
 
   // Check if user is already logged in from localStorage
   useEffect(() => {
@@ -41,9 +40,8 @@ const App = () => {
     setCurrentPage(page);
   };
 
-  const startQuiz = (topic, difficulty) => {
+  const startQuiz = (topic) => {
     setQuizTopic(topic);
-    setQuizDifficulty(difficulty);
     setCurrentPage('quiz');
   };
 
@@ -74,9 +72,9 @@ const App = () => {
       case 'dashboard':
         return user.accountType === 'parent' 
           ? <ParentDashboard user={user} navigateTo={navigateTo} />
-          : <Dashboard user={user} startQuiz={startQuiz} />;
+          : <DashboardRouter user={user} startQuiz={startQuiz} />;
       case 'quiz':
-        return <Quiz topic={quizTopic} difficulty={quizDifficulty} user={user} navigateTo={navigateTo} />;
+        return <Quiz topic={quizTopic} user={user} navigateTo={navigateTo} />;
       default:
         return <LandingPage navigateTo={navigateTo} />;
     }

@@ -7,39 +7,51 @@ const Dashboard = ({ user, startQuiz }) => {
   const topics = [
     {
       id: 1,
-      name: 'Addition',
-      description: 'Learn to add numbers',
-      icon: '➕',
-    },
-    {
-      id: 2,
-      name: 'Subtraction',
-      description: 'Learn to subtract numbers',
-      icon: '➖',
-    },
-    {
-      id: 3,
-      name: 'Counting',
-      description: 'Practice counting objects',
+      name: 'Numbers & Counting',
+      description: 'Recognize numbers and practice counting',
       icon: '🔢',
     },
     {
+      id: 2,
+      name: 'Addition (within 10)',
+      description: 'Add numbers up to 10',
+      icon: '➕',
+    },
+    {
+      id: 3,
+      name: 'Patterns',
+      description: 'Identify and complete patterns',
+      icon: '🧩',
+    },
+    {
       id: 4,
-      name: 'Shapes',
-      description: 'Identify different shapes',
-      icon: '📐',
+      name: 'Shapes & Colours',
+      description: 'Explore shapes and colours',
+      icon: '🎨',
     },
     {
       id: 5,
-      name: 'Time',
-      description: 'Learn to tell time',
-      icon: '🕒',
+      name: 'Measurement & Comparison',
+      description: 'Measure, compare and order objects',
+      icon: '📏',
     },
     {
       id: 6,
-      name: 'Measurement',
-      description: 'Compare and measure objects',
-      icon: '📏',
+      name: 'Time',
+      description: 'Learn to tell and understand time',
+      icon: '🕒',
+    },
+    {
+      id: 7,
+      name: 'Money',
+      description: 'Understand coins and money values',
+      icon: '💰',
+    },
+    {
+      id: 8,
+      name: 'Ordinal Numbers',
+      description: 'Learn about position and order',
+      icon: '1️⃣',
     },
   ];
 
@@ -53,11 +65,8 @@ const Dashboard = ({ user, startQuiz }) => {
     : 0;
 
   const handleStartQuiz = (topic) => {
-    // Show difficulty selection
-    const difficulty = prompt('Select difficulty: 1 (Easy), 2 (Medium), or 3 (Hard)');
-    if (difficulty && ['1', '2', '3'].includes(difficulty)) {
-      startQuiz(topic, difficulty);
-    }
+    // Directly start quiz; difficulty will be determined automatically
+    startQuiz(topic);
   };
 
   return (

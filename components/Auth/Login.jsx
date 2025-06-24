@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { supabase } from '../../utils/supabaseClient'; 
+import bcrypt from 'bcryptjs';
 
 const Login = ({ onLogin, navigateTo }) => {
   const [username, setUsername] = useState('');
@@ -7,52 +9,86 @@ const Login = ({ onLogin, navigateTo }) => {
   const [accountType, setAccountType] = useState('student');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
-    // Basic validation
+
     if (!username || !password) {
       setError('Please fill in all fields');
       return;
     }
-    
-    // Check if user exists in localStorage
-    const storedUser = localStorage.getItem('mathWhizRegistered_' + username);
-    
-    if (!storedUser) {
-      setError('Username not found. Please register first.');
+
+    if (accountType === 'student') {
+      // ✅ Query Supabase Student table
+      const { data, error: dbError } = await supabase
+        .from('Student')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (dbError || !data) {
+        setError('Username not found');
+        return;
+      }
+
+      // ✅ Compare password hash
+      const passwordMatch = await bcrypt.compare(password, data.password);
+
+      if (!passwordMatch) {
+        setError('Incorrect password');
+        return;
+      }
+
+      // ✅ Create user object for dashboard
+      const userData = {
+        id: data.id,
+        username: data.username,
+        grade: data.grade_level,
+        accountType: 'student',
+        progress: {
+          completedQuizzes: 0,
+          correctAnswers: 0,
+          totalQuestions: 0,
+          topicProgress: {},
+          quizHistory: []
+        },
+        linkedAccounts: []
+      };
+
+      onLogin(userData);
+    }
+  // ✅ NEW: Handle Parent Login
+  if (accountType === 'parent') {
+    const { data, error: dbError } = await supabase
+      .from('Parent')
+      .select('*')
+      .eq('parent_email', email)
+      .single();
+
+    if (dbError || !data) {
+      setError('Parent email not found');
       return;
     }
-    
-    const registeredUser = JSON.parse(storedUser);
-    
-    // Simple password verification
-    if (registeredUser.password !== password) {
+
+    const passwordMatch = await bcrypt.compare(password, data.password);
+    if (!passwordMatch) {
       setError('Incorrect password');
       return;
     }
-    
-    // Create user data from registered information
-    const userData = {
-      id: Math.floor(Math.random() * 1000),
-      username,
-      accountType: registeredUser.accountType,
-      ...(registeredUser.accountType === 'student' && { grade: registeredUser.grade }),
-      progress: registeredUser.progress || {
-        completedQuizzes: 0,
-        correctAnswers: 0,
-        totalQuestions: 0,
-        topicProgress: {},
-        quizHistory: []
-      },
-      linkedAccounts: registeredUser.linkedAccounts || []
-    };
-    
-    // Call the login function from parent
-    onLogin(userData);
-  };
 
+    const userData = {
+      id: data.id,
+      email: data.parent_email,
+      username: data.parent_email, // for consistency
+      accountType: 'parent',
+      linkedAccounts: []
+    };
+
+    onLogin(userData); // 🔁 This will lead to <ParentDashboard user={userData} />
+  }
+};
+
+  
   return (
     <div className="auth-container">
       <h2 className="form-title">Login to MathWhiz</h2>
