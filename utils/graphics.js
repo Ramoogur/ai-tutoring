@@ -44,32 +44,39 @@ export function makeCountingSvg(count, color = '#ff6666', size = 220) {
 }
 
 // Make SVG with two groups of identical emojis/items side-by-side (e.g., "6 and 1")
-export function makeAdditionSvg(a, b, emoji = '🍎', size = 220) {
-  const gap = 20;
-  const boxW = (size - gap * 3) / 2; // space for 2 boxes plus gaps
-  const boxH = boxW;
-  const fontSize = boxW / 5; // heuristic for emoji size
+export function makeAdditionSvg(a, b, emoji, size =1200) {
+  const emojiOptions = ['🍎', '🍊', '🍌', '🍇', '🍓', '🍉', '⭐', '🧩', '🦋', '🌟'];
+  if (!emoji) {
+    emoji = emojiOptions[Math.floor(Math.random() * emojiOptions.length)];
+  }
+  // Layout constants
+  const gap = 38; // even larger gap between boxes
+  const padding = 32; // more padding for emojis
+  const boxW = size * 0.38; // fixed large width
+  const boxH = size * 0.55; // fixed large height
+  const fontSizeMax = boxW * 0.8; // max emoji size
 
-  // helper to render N emojis in a grid inside a rounded rect
-  const renderGroup = (count, xOffset) => {
-    const cols = Math.ceil(Math.sqrt(count));
-    const rows = Math.ceil(count / cols);
-    const cell = (boxW - 10) / cols;
-    let elements = `<rect x='${xOffset}' y='0' width='${boxW}' height='${boxH}' rx='15' ry='15' fill='#f5f5f5' stroke='#ccc' stroke-width='2'/>`;
-    for (let i = 0; i < count; i++) {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x = xOffset + cell / 2 + col * cell;
-      const y = 20 + row * cell;
-      elements += `<text x='${x}' y='${y}' font-size='${fontSize}' dominant-baseline='hanging' text-anchor='middle'>${emoji}</text>`;
-    }
-    return elements;
-  };
-
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${boxH}'>` +
-    renderGroup(a, gap) +
-    renderGroup(b, boxW + gap * 2) +
-    `</svg>`;
+  // Render emojis in a single horizontal row
+  const symbolSize = 1200;
+  const emojiSize = symbolSize;
+  const cellSize = symbolSize + 8; // 8px gap between all
+  // Build the sequence: a emojis, '+', b emojis, '=', '?'
+  const items = [
+    ...Array(a).fill(emoji),
+    '+',
+    ...Array(b).fill(emoji),
+    '=',
+    '?'
+  ];
+  const totalWidth = items.length * cellSize;
+  const centerY = cellSize * 0.9;
+  let svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${totalWidth}' height='${cellSize * 1.6}'>`;
+  items.forEach((item, i) => {
+    const x = i * cellSize + cellSize / 2;
+    const isSymbol = ['+', '=', '?'].includes(item);
+    svg += `<text x='${x}' y='${centerY}' font-size='${symbolSize}' text-anchor='middle' alignment-baseline='middle'>${item}</text>`;
+  });
+  svg += `</svg>`;
   return svgToDataUrl(svg);
 }
 

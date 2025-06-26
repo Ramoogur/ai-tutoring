@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { getQuestions } from '../../data/questions';
 import { generateOpenAIQuestions } from '../../utils/openaiQuiz';
@@ -18,6 +18,8 @@ const Quiz = ({ topic, user, navigateTo }) => {
   const [difficulty, setDifficulty] = useState('easy'); // for display
   const [feedback, setFeedback] = useState(null);
   const [clockUrl, setClockUrl] = useState(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const speakingUtteranceRef = useRef(null);
 
   // --- Helper functions ---
   const getDifficultyFromAccuracy = (acc) => {
@@ -46,8 +48,74 @@ const Quiz = ({ topic, user, navigateTo }) => {
     setTranslatedOpts(null);
   }, [currentQuestionIndex]);
 
+  // Fallback French dictionary for common math words
+  const fallbackFrDict = {
+    'circle': 'Cercle',
+    'circular': 'Circulaire',
+    'square': 'Carré',
+    'triangle': 'Triangle',
+    'rectangle': 'Rectangle',
+    'oval': 'Ovale',
+    'diamond': 'Losange',
+    'hexagon': 'Hexagone',
+    'pentagon': 'Pentagone',
+    'octagon': 'Octogone',
+    'red': 'Rouge',
+    'blue': 'Bleu',
+    'green': 'Vert',
+    'yellow': 'Jaune',
+    'black': 'Noir',
+    'white': 'Blanc',
+    'orange': 'Orange',
+    'purple': 'Violet',
+    'brown': 'Marron',
+    'grey': 'Gris',
+    'gray': 'Gris',
+    'parallelogram': 'Parallélogramme',
+    'trapezoid': 'Trapèze',
+    'cube': 'Cube',
+    'sphere': 'Sphère',
+    'cylinder': 'Cylindre',
+    'cone': 'Cône',
+    'pyramid': 'Pyramide',
+    'star': 'Étoile',
+    'heart': 'Cœur',
+    'plus': 'Plus',
+    'minus': 'Moins',
+    'add': 'Additionner',
+    'subtract': 'Soustraire',
+    'multiply': 'Multiplier',
+    'divide': 'Diviser',
+    // Add more as needed
+  };
+
+  // Helper: translate with retry
+  async function translateWithRetry(text, langpair, retries = 2) {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const res = await fetch(
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langpair}`
+        );
+        const data = await res.json();
+        if (data?.responseData?.translatedText && data.responseData.translatedText.trim() && data.responseData.translatedText.trim().toLowerCase() !== text.trim().toLowerCase()) {
+          return data.responseData.translatedText;
+        }
+        // If translation is identical to input, try dictionary fallback
+        const key = text.trim().toLowerCase();
+        if (langpair === 'en|fr' && fallbackFrDict[key]) {
+          return fallbackFrDict[key];
+        }
+      } catch (e) {}
+      // Wait before retrying
+      if (i < retries) await new Promise(res => setTimeout(res, 350));
+    }
+    return text;
+  }
+
   // Translate current question into French on demand
   const translateQuestion = async () => {
+    // Prevent race conditions: snapshot question index
+    const thisQuestionIndex = currentQuestionIndex;
     if (transLoading) return;
     if (translated) {
       setTranslated(null);
@@ -58,27 +126,31 @@ const Quiz = ({ topic, user, navigateTo }) => {
     if (!currentQuestion) return;
     setTransLoading(true);
     try {
-      const res = await fetch(
-        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(currentQuestion.question)}&langpair=en|fr`
-      );
-      const data = await res.json();
-      const fr = data?.responseData?.translatedText;
+      const fr = await translateWithRetry(currentQuestion.question, 'en|fr', 2);
       let frOpts = [];
       if (currentQuestion.options && currentQuestion.options.length) {
-        frOpts = await Promise.all(
+        // Translate all options in parallel
+        const translations = await Promise.all(
           currentQuestion.options.map(async (opt) => {
-          const isNumber = /^-?\d+(?:\.\d+)?$/.test(String(opt).trim());
-          if (isNumber) return opt;
-            const r = await fetch(
-              `https://api.mymemory.translated.net/get?q=${encodeURIComponent(opt)}&langpair=en|fr`
-            );
-            const d = await r.json();
-            return d?.responseData?.translatedText || opt;
+            const isNumber = /^-?\d+(?:\.\d+)?$/.test(String(opt).trim());
+            if (isNumber) return opt;
+            // Always check fallback dict for options
+            let frOpt = await translateWithRetry(opt, 'en|fr', 2);
+            const key = String(opt).trim().toLowerCase();
+            if (frOpt.trim().toLowerCase() === key && fallbackFrDict[key]) {
+              frOpt = fallbackFrDict[key];
+            }
+            return frOpt;
           })
         );
+        // Only update state if still on same question
+        if (currentQuestionIndex === thisQuestionIndex) {
+          if (fr) setTranslated(fr);
+          if (translations.length) setTranslatedOpts(translations);
+        }
+      } else {
+        if (fr) setTranslated(fr);
       }
-      if (fr) setTranslated(fr);
-      if (frOpts.length) setTranslatedOpts(frOpts);
     } catch (err) {
       console.error('translation error', err);
     } finally {
@@ -294,7 +366,77 @@ const Quiz = ({ topic, user, navigateTo }) => {
       </div>
 
       <div className="question">
-        <div className="question-header">
+        <div className="question-header" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Microphone Button */}
+          <button
+            className={`mic-btn${isSpeaking ? ' speaking' : ''}`}
+            onClick={() => {
+              if (isSpeaking) {
+                window.speechSynthesis.cancel();
+                setIsSpeaking(false);
+                return;
+              }
+              // Prepare text to read
+              const questionText = translated || currentQuestion.question;
+              const optionsText = (translatedOpts || currentQuestion.options).map((opt, idx) => `Option ${idx + 1}: ${opt}`).join('. ');
+              const fullText = `${questionText}. ${optionsText}`;
+              // Determine language
+              const lang = translated ? 'fr-FR' : 'en-US';
+              // Stop any ongoing speech
+              window.speechSynthesis.cancel();
+              setIsSpeaking(false);
+              // Create utterance
+              const utter = new window.SpeechSynthesisUtterance(fullText);
+              utter.lang = lang;
+              // Speaking state handlers
+              utter.onstart = () => setIsSpeaking(true);
+              utter.onend = utter.onerror = () => setIsSpeaking(false);
+              speakingUtteranceRef.current = utter;
+
+              // Select appropriate voice
+              function speakWithVoice() {
+                const voices = window.speechSynthesis.getVoices();
+                let selectedVoice = null;
+                if (lang === 'fr-FR') {
+                  selectedVoice = voices.find(v => v.lang.startsWith('fr'));
+                } else {
+                  selectedVoice = voices.find(v => v.lang.startsWith('en'));
+                }
+                if (selectedVoice) utter.voice = selectedVoice;
+                window.speechSynthesis.speak(utter);
+              }
+
+              // Some browsers load voices asynchronously
+              if (window.speechSynthesis.getVoices().length === 0) {
+                window.speechSynthesis.onvoiceschanged = speakWithVoice;
+                setTimeout(speakWithVoice, 200);
+              } else {
+                speakWithVoice();
+              }
+            }}
+            title="Read question and options"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '28px', marginRight: '6px', display: 'flex', alignItems: 'center' }}
+            aria-label="Read question and options"
+          >
+            {/* Classic Microphone SVG Icon (larger, matching provided image) */}
+            <svg width="28" height="28" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g>
+                <rect x="14" y="7" width="12" height="18" rx="6" fill={isSpeaking ? '#4f8cff' : '#222'} stroke={isSpeaking ? '#4f8cff' : '#222'} strokeWidth="1"/>
+                <path d="M10 21c0 6 4 9 10 9s10-3 10-9" stroke={isSpeaking ? '#4f8cff' : '#222'} strokeWidth="2" fill="none"/>
+                <rect x="18" y="30" width="4" height="5" rx="2" fill={isSpeaking ? '#4f8cff' : '#222'} />
+                <rect x="14" y="36" width="12" height="2" rx="1" fill={isSpeaking ? '#4f8cff' : '#222'} />
+              </g>
+              {isSpeaking && (
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
+                  <feMerge>
+                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              )}
+            </svg>
+          </button>
           {translated || currentQuestion.question}
           <button
             className="translate-btn"

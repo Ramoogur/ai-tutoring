@@ -42,10 +42,34 @@ export const generateOpenAIQuestions = async (topicName, difficulty = 'easy') =>
     `Each question must be multiple-choice with exactly 4 options and a single correct answer.\n` +
     `NO markdown, no commentary—just raw JSON.`;
 
-  const userPrompt = `Create 15 '${difficulty}' level questions for the Grade-1 math sub-topic “${topicName}”.\n` +
-    `Use the curriculum highlights below as guidance. Do NOT include emojis.\n` +
-    `Curriculum Highlights:\n` +
-    `• Recognize and write numbers 0–10\n• Identify and draw 2D shapes (circle, square, triangle, rectangle)\n• Understand comparisons (big/small, long/short, heavy/light)\n• Identify colours (red, blue, yellow, green)\n• Count, sort, and match items with numerals\n• Recognize time concepts (day/night, morning/afternoon)\n• Perform basic addition (within 10)\n• Understand ordinal numbers (1st to 5th)\n• Identify money coins (1c to Rs 10)\n• Recognize and complete patterns`;
+  // Define explicit difficulty guidance for the AI
+  let difficultyInstructions = '';
+  if (difficulty === 'easy') {
+    difficultyInstructions = "Easy: Simple, direct questions requiring basic recall or recognition. No multi-step reasoning. Only one concept per question.";
+  } else if (difficulty === 'medium') {
+    difficultyInstructions = "Medium: Questions may require one step of reasoning, combining two facts, or interpreting simple information. Slightly more challenging than easy. May involve simple comparisons or require choosing between similar options.";
+  } else if (difficulty === 'hard') {
+    difficultyInstructions = "Hard: Questions may require two or more steps, logical reasoning, or application of concepts in new ways. Should be challenging for most Grade 1 students. Could involve multi-step logic, identifying patterns in more complex ways, or applying knowledge to unfamiliar situations.";
+  } else {
+    difficultyInstructions = `Difficulty: ${difficulty}.`;
+  }
+
+  let userPrompt;
+  if (topicName.toLowerCase().includes('pattern')) {
+    userPrompt = `Create 5 '${difficulty}' level multiple-choice questions for the Grade-1 math topic “Patterns”.\n` +
+      `Difficulty definition: ${difficultyInstructions}\n` +
+      `Each question should involve recognizing, continuing, or identifying a sequence or pattern (e.g., What comes next in the pattern? ).\n` +
+      `If a question refers to an object (e.g., ball, apple, car), illustrate the object with an appropriate image. For example, if the question is about a ball, show a ball image alongside the question.\n` +
+      `Do NOT include any other topics questions.\n` +
+      `Do NOT include emojis in the text.\n` +
+      `Questions should be simple, visual, and focus on patterns using shapes, colors, objects, or the above symbols.`;
+  } else {
+    userPrompt = `Create 5 '${difficulty}' level questions for the Grade-1 math sub-topic “${topicName}”.\n` +
+      `Difficulty definition: ${difficultyInstructions}\n` +
+      `Use the curriculum highlights below as guidance. Do NOT include emojis.\n` +
+      `Curriculum Highlights:\n` +
+      `• Recognize and write numbers 0–10\n• Identify and draw 2D shapes (circle, square, triangle, rectangle)\n• Understand comparisons (big/small, long/short, heavy/light)\n• Identify colours (red, blue, yellow, green)\n• Count, sort, and match items with numerals\n• Recognize time concepts (day/night, morning/afternoon)\n• Perform basic addition (within 10)\n• Understand ordinal numbers (1st to 5th)\n• Identify money coins (1c to Rs 10)\n• Recognize and complete patterns`;
+  }
 
   try {
     const response = await fetch('/openai/v1/chat/completions', {
