@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { getQuestions } from '../../data/questions';
-import { generateOpenAIQuestions } from '../../utils/openaiQuiz';
 import { makeClockSvg } from '../../utils/graphics';
+import ShapesColors from './ShapesColors/ShapesColors';
+import { basicQuestions } from '../../data/basicQuestions';
 
 // `difficulty` is now determined automatically based on past performance
 const Quiz = ({ topic, user, navigateTo }) => {
+  // Check if this is a shapes and colors topic
+  const isShapesColors = topic && (topic.name.toLowerCase().includes('shape') || topic.name.toLowerCase().includes('colour') || topic.name.toLowerCase().includes('color'));
+  
+  // If it's shapes and colors, use the specialized component
+  if (isShapesColors) {
+    return <ShapesColors topic={topic} user={user} navigateTo={navigateTo} />;
+  }
   const [translated, setTranslated] = useState(null);
   const [transLoading, setTransLoading] = useState(false);
   const [translatedOpts, setTranslatedOpts] = useState(null);
@@ -172,12 +179,20 @@ const Quiz = ({ topic, user, navigateTo }) => {
         const difficultyLevel = difficultyAuto;
         let quizQuestions = [];
 
-        if (user.grade === 1) {
-          // Try generating via OpenAI; if it fails, fall back to static bank
-          quizQuestions = await generateOpenAIQuestions(topic.name, difficultyLevel);
-        }
-        if (!quizQuestions || quizQuestions.length === 0) {
-          quizQuestions = getQuestions(topic, difficultyLevel);
+        // Use basic questions for non-shapes topics
+        const topicQuestions = basicQuestions[topic.name];
+        if (topicQuestions && topicQuestions[difficultyLevel]) {
+          quizQuestions = topicQuestions[difficultyLevel].slice(0, 5);
+        } else {
+          // Default fallback questions
+          quizQuestions = [
+            {
+              id: 1,
+              question: `Let's practice ${topic.name}!`,
+              options: ['Great!', 'Ready!', 'Let\'s go!', 'Awesome!'],
+              correct: 'Great!'
+            }
+          ];
         }
         setQuestions(quizQuestions);
       }, 1000);

@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { makeCountingSvg } from '../../utils/graphics';
-import { makeAdditionSvg } from '../../utils/graphics';
-import { makePatternSvg } from '../../utils/graphics';
+import { makeCountingSvg, makeAdditionSvg, makePatternSvg, makeShapeSvg } from '../../utils/graphics';
 
 const Dashboard = ({ user, startQuiz }) => {
   // Always use the user's grade from their profile
@@ -29,7 +27,7 @@ const Dashboard = ({ user, startQuiz }) => {
     {
       id: 4,
       name: 'Shapes & Colours',
-      description: 'Explore shapes and colours',
+      description: 'Interactive shapes and colors exercises',
       icon: '🎨',
     },
     {
@@ -68,7 +66,7 @@ const Dashboard = ({ user, startQuiz }) => {
     : 0;
 
   const handleStartQuiz = (topic) => {
-    // Only call makeCountingSvg for 'Numbers & Counting'
+    // Call graphics functions for specific topics
     if (topic.name === 'Numbers & Counting') {
       makeCountingSvg();
     }
@@ -77,6 +75,10 @@ const Dashboard = ({ user, startQuiz }) => {
     }
     if (topic.name === 'Patterns') {
       makePatternSvg();
+    }
+    if (topic.name === 'Shapes & Colours') {
+      // Shape graphics will be handled by the ShapesColors component
+      console.log('Starting Shapes & Colours quiz...');
     }
     // Directly start quiz; difficulty will be determined automatically
     startQuiz(topic);
