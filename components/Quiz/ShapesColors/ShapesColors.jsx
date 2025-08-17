@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
 import { shapesColorsQuestions, colors, shapes } from '../../../data/shapesColorsQuestions';
+import { aiController } from '../../../utils/aiController';
+import { aiTutor } from '../../../utils/aiTutor';
 import './ShapesColors.css';
 
 const ShapesColors = ({ topic, user, navigateTo }) => {
@@ -20,6 +22,10 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
   const [isTracing, setIsTracing] = useState(false);
   const [tracedPath, setTracedPath] = useState([]);
   const [constructedShapes, setConstructedShapes] = useState([]);
+  // AI is always enabled - removed toggle functionality
+  const [aiStatus, setAiStatus] = useState(null);
+  const [questionStartTime, setQuestionStartTime] = useState(null);
+  const [aiFeedback, setAiFeedback] = useState(null);
   
   const canvasRef = useRef(null);
   const tracingRef = useRef(null);
@@ -43,35 +49,81 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
     return getDifficultyFromAccuracy(accuracy);
   };
 
-  // Initialize questions based on difficulty
+  // AI-Enhanced initialization with adaptive difficulty
   useEffect(() => {
     (async () => {
       if (!topic || !user) return;
       
-      // Get user's difficulty level from database
-      const dbDifficulty = await fetchDifficulty(user.id, topic.id);
-      setDifficulty(dbDifficulty);
+      // Reset quiz state
+      setCurrentQuestionIndex(0);
+      setScore(0);
+      setShowResult(false);
+      setFeedback(null);
+      setAiFeedback(null);
+      setSortedItems([]);
+      setMatchedPairs(new Set());
+      setTextInput('');
       
-      // Select questions based on difficulty level
-      let selectedQuestions = [];
-      
-      switch (dbDifficulty) {
-        case 'easy':
-          selectedQuestions = shapesColorsQuestions.easy.slice(0, 5);
-          break;
-        case 'medium':
-          selectedQuestions = [...shapesColorsQuestions.easy.slice(0, 2), ...shapesColorsQuestions.medium.slice(0, 3)];
-          break;
-        case 'hard':
-          selectedQuestions = [...shapesColorsQuestions.medium.slice(0, 2), ...shapesColorsQuestions.hard.slice(0, 3)];
-          break;
-        default:
-          selectedQuestions = shapesColorsQuestions.easy.slice(0, 5);
+      // Load current difficulty from database
+      let savedDifficulty = 'easy'; // Default
+      try {
+        const { data: studentStats } = await supabase
+          .from('StudentTopicStats')
+          .select('current_difficulty')
+          .eq('student_id', user.id)
+          .eq('topic_id', topic.id)
+          .single();
+        
+        if (studentStats?.current_difficulty) {
+          savedDifficulty = studentStats.current_difficulty;
+          console.log(`💾 Loaded saved difficulty: ${savedDifficulty}`);
+        }
+      } catch (error) {
+        console.log('🆆 No previous progress found, starting at Easy level');
       }
       
-      // Shuffle questions for variety
-      const shuffledQuestions = selectedQuestions.sort(() => Math.random() - 0.5);
-      setQuestions(shuffledQuestions);
+      // Initialize AI system for Shapes & Colors with correct difficulty
+      console.log(`🤖 Initializing AI Tutor for Shapes & Colors at ${savedDifficulty} difficulty`);
+      aiController.startQuizSession('shapes_colors');
+      
+      // Set AI to the correct difficulty level from database BEFORE starting
+      aiTutor.setDifficultyForNextSession(savedDifficulty);
+      setAiStatus(aiController.getAIStatus());
+      
+      // Use the loaded difficulty level and update state
+      let difficultyLevel = savedDifficulty;
+      setDifficulty(savedDifficulty); // Update React state for UI display
+      console.log(`🎯 Starting quiz at difficulty: ${difficultyLevel}`);
+      
+      // Prepare questions with AI selection
+      let selectedQuestions = [];
+      
+      // Get all available questions across difficulties for AI selection
+      const allQuestions = [
+        ...(shapesColorsQuestions.easy || []).map(q => ({ ...q, difficulty: 'easy' })),
+        ...(shapesColorsQuestions.medium || []).map(q => ({ ...q, difficulty: 'medium' })),
+        ...(shapesColorsQuestions.hard || []).map(q => ({ ...q, difficulty: 'hard' }))
+      ];
+      
+      // Let AI select optimal questions based on performance
+      if (allQuestions.length > 0) {
+        selectedQuestions = aiController.prepareQuestions(allQuestions, 5);
+        console.log(`🧠 AI selected ${selectedQuestions.length} personalized questions`);
+      } else {
+        console.warn('No questions available for AI selection');
+        
+        // Shuffle questions for variety in traditional mode
+        selectedQuestions = selectedQuestions.sort(() => Math.random() - 0.5);
+      }
+      
+      setQuestions(selectedQuestions);
+      
+      // Start tracking the first question with AI
+      if (selectedQuestions.length > 0) {
+        const questionTrackingData = aiController.startQuestion(selectedQuestions[0]);
+        setQuestionStartTime(questionTrackingData.startTime);
+      }
+      
     })();
   }, [topic, user]);
 
@@ -209,6 +261,61 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
     }
   }, [tracedPath]);
 
+  // Smart positioning for robot construction
+  const getSuggestedPosition = (shape, existingShapes) => {
+    const canvasWidth = 400;
+    const canvasHeight = 300;
+    const centerX = canvasWidth / 2;
+    
+    // Count existing shapes of each type
+    const shapeCount = {
+      triangle: existingShapes.filter(s => s.shape === 'triangle').length,
+      square: existingShapes.filter(s => s.shape === 'square').length, 
+      rectangle: existingShapes.filter(s => s.shape === 'rectangle').length,
+      circle: existingShapes.filter(s => s.shape === 'circle').length
+    };
+    
+    // Robot part positioning:
+    // - Square: Body (center)
+    // - Rectangle: Arms/Legs (sides/bottom)
+    // - Triangle: Head (top)
+    // - Circle: Eyes (top of body)
+    switch (shape) {
+      case 'triangle': // Head (top center)
+        return {
+          x: centerX - 30 + (shapeCount.triangle * 20),
+          y: 20 + (shapeCount.triangle * 10)
+        };
+      case 'square': // Body (middle)
+        return {
+          x: centerX - 50 + (shapeCount.square * 25),
+          y: 100 + (shapeCount.square * 10)
+        };
+      case 'rectangle': // Arms/Legs
+        // Alternate arms (sides, upper) and legs (sides, lower)
+        if (shapeCount.rectangle % 2 === 0) {
+          // Arms (left/right, upper)
+          return {
+            x: centerX - 100 + (shapeCount.rectangle * 60),
+            y: 110
+          };
+        } else {
+          // Legs (left/right, lower)
+          return {
+            x: centerX - 60 + (shapeCount.rectangle * 60),
+            y: 200
+          };
+        }
+      case 'circle': // Eyes (on head/body)
+        return {
+          x: centerX - 20 + (shapeCount.circle * 40),
+          y: 50
+        };
+      default:
+        return { x: centerX - 30, y: canvasHeight / 2 };
+    }
+  };
+
   // Construction mode for drawing
   const addConstructedShape = (shape, color, position) => {
     const newShape = {
@@ -338,21 +445,73 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
         isCorrect = false;
     }
 
+    // AI Analysis and Adaptive Feedback - AI is always enabled
+    // Determine user's answer for AI analysis
+    let userAnswer = null;
+    switch (currentQuestion.type) {
+      case 'identification':
+      case 'pattern':
+        userAnswer = selectedOption;
+        break;
+      case 'naming':
+        userAnswer = textInput;
+        break;
+      case 'matching':
+        userAnswer = `matched_pairs_${matchedPairs.size}`;
+        break;
+      case 'sorting':
+        userAnswer = `sorted_items_${sortedItems.length}`;
+        break;
+      case 'tracing':
+        userAnswer = `traced_points_${tracedPath.length}`;
+        break;
+      case 'construction':
+        userAnswer = `constructed_shapes_${constructedShapes.length}`;
+        break;
+    }
+    
+    let aiAnalysisResult = aiController.processAnswer(currentQuestion, isCorrect, userAnswer);
+    console.log(`🔍 AI Analysis: ${isCorrect ? 'Correct' : 'Incorrect'} - ${aiAnalysisResult.aiFeedback.message}`);
+    
+    // Update AI status
+    setAiStatus(aiController.getAIStatus());
+    
+    // Set AI feedback
+    setAiFeedback(aiAnalysisResult.aiFeedback);
+    
+    // Log difficulty adjustments
+    if (aiAnalysisResult.difficultyAdjustment) {
+      console.log(`🔄 AI adjusted difficulty to: ${aiAnalysisResult.newDifficulty}`);
+      setDifficulty(aiAnalysisResult.newDifficulty.toLowerCase());
+    }
+
+    // Set feedback with AI enhancement
+    const feedbackMessage = aiAnalysisResult ? 
+      aiAnalysisResult.aiFeedback.message : 
+      (isCorrect ? '🎉 Excellent! Well done!' : '👍 Good try! Let\'s practice more.');
+    
     if (isCorrect) {
       setScore(score + 1);
-      setFeedback({ isCorrect: true, message: '🎉 Excellent! Well done!' });
+      setFeedback({ isCorrect: true, message: feedbackMessage });
     } else {
-      setFeedback({ isCorrect: false, message: '👍 Good try! Let\'s practice more.' });
+      setFeedback({ isCorrect: false, message: feedbackMessage });
     }
 
     setTimeout(() => {
       if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
+        const nextIndex = currentQuestionIndex + 1;
+        setCurrentQuestionIndex(nextIndex);
         resetQuestionState();
+        
+        // Start tracking the next question for AI
+        if (questions[nextIndex]) {
+          const questionTrackingData = aiController.startQuestion(questions[nextIndex]);
+          setQuestionStartTime(questionTrackingData.startTime);
+        }
       } else {
         finishQuiz();
       }
-    }, 2000);
+    }, 2500); // AI processing delay
   };
 
   const resetQuestionState = () => {
@@ -364,6 +523,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
     setTracedPath([]);
     setConstructedShapes([]);
     setFeedback(null);
+    setAiFeedback(null);
     setIsChecking(false);
   };
 
@@ -371,15 +531,78 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
     setShowResult(true);
     const accuracy = score / questions.length;
     
-    // Save results to database
+    // Complete AI session and get comprehensive feedback
+    let aiSessionSummary = aiController.completeQuizSession();
+    console.log('🎓 AI Session Summary:', aiSessionSummary);
+    
+    // Set AI feedback with session summary
+    setAiFeedback({
+      ...aiSessionSummary.aiFeedback,
+      sessionSummary: aiSessionSummary
+    });
+    
+    // Update final AI status
+    setAiStatus(aiController.getAIStatus());
+    
+    // Save comprehensive progress data to database
     try {
-      await supabase.from('StudentTopicStats').upsert({
+      const sessionAccuracy = (score / questions.length) * 100;
+      const currentSessionDifficulty = aiSessionSummary?.difficultyProgression?.current || 'easy';
+      const nextSessionDifficulty = aiSessionSummary?.difficultyProgression?.next || 'easy';
+      
+      // 1. Update/Insert StudentTopicStats (overall progress)
+      const statsData = {
         student_id: user.id,
         topic_id: topic.id,
-        total_attempts: 1,
+        total_attempts: 1, // Will be incremented by database trigger
         correct_answers: score,
-        last_attempted: new Date().toISOString()
-      }, { onConflict: 'student_id,topic_id' });
+        total_questions: questions.length,
+        current_difficulty: nextSessionDifficulty, // Next session difficulty
+        last_accuracy: sessionAccuracy,
+        last_attempted: new Date().toISOString(),
+        ai_performance: aiSessionSummary?.performance || sessionAccuracy,
+        best_streak: aiSessionSummary?.currentStreak || 0,
+        progress_data: JSON.stringify({
+          recentAccuracies: [sessionAccuracy], // Array to track trend
+          difficultyHistory: aiSessionSummary?.difficultyProgression || {},
+          learningInsights: aiSessionSummary?.aiFeedback?.insights || [],
+          achievements: aiSessionSummary?.aiFeedback?.achievements || []
+        })
+      };
+      
+      await supabase.from('StudentTopicStats').upsert(statsData, { onConflict: 'student_id,topic_id' });
+      
+      // 2. Insert QuizSession (individual session record for detailed tracking)
+      const sessionData = {
+        student_id: user.id,
+        topic_id: topic.id,
+        session_date: new Date().toISOString(),
+        difficulty_level: currentSessionDifficulty,
+        questions_attempted: questions.length,
+        correct_answers: score,
+        accuracy_percentage: sessionAccuracy,
+        time_spent: Math.round((Date.now() - aiSessionSummary?.duration) / 1000) || 0,
+        next_difficulty: nextSessionDifficulty,
+        difficulty_changed: currentSessionDifficulty !== nextSessionDifficulty,
+        ai_feedback: JSON.stringify({
+          encouragement: aiSessionSummary?.aiFeedback?.encouragement,
+          suggestions: aiSessionSummary?.aiFeedback?.suggestions,
+          progressionReason: aiSessionSummary?.difficultyProgression?.reason
+        }),
+        question_details: JSON.stringify({
+          questionTypes: questions.map(q => q.type),
+          responses: questions.map((q, idx) => ({
+            questionId: q.id || idx,
+            correct: idx < score, // Simplified - you may want more detailed tracking
+            questionType: q.type
+          }))
+        })
+      };
+      
+      await supabase.from('QuizSessions').insert(sessionData);
+      
+      console.log(`📊 Results saved - Score: ${score}/${questions.length}, Accuracy: ${(accuracy*100).toFixed(1)}%`);
+      
     } catch (error) {
       console.error('Error saving results:', error);
     }
@@ -401,47 +624,180 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
 
   if (showResult) {
     const percentage = Math.round((score / questions.length) * 100);
+    
     return (
-      <div className="shapes-colors-result">
+      <div className="shapes-colors-result ai-enhanced">
         <div className="result-content">
-          <h2>🌟 Amazing Work!</h2>
-          <div className="score-display">
-            <div className="score-circle">
-              <span className="score-text">{percentage}%</span>
-            </div>
-          </div>
-          <p>You got {score} out of {questions.length} questions right!</p>
+          <h2>🎓 Shapes & Colors Complete!</h2>
           
-          <div className="encouragement-section">
-            {percentage >= 80 ? (
-              <div className="great-job">
-                <h3>🌟 Outstanding work!</h3>
-                <p>You have excellent knowledge of shapes and colors!</p>
+          <div className="basic-results">
+            <div className="score-display">
+              <div className="score-circle">
+                <span className="score-text">{percentage}%</span>
               </div>
-            ) : percentage >= 60 ? (
-              <div className="good-job">
-                <h3>👍 Good job!</h3>
-                <p>You're learning well! Keep practicing to improve even more.</p>
-              </div>
-            ) : (
-              <div className="keep-trying">
-                <h3>💪 Keep trying!</h3>
-                <p>Practice makes perfect. You're on the right track!</p>
-              </div>
-            )}
+            </div>
+            <p><strong>Score:</strong> {score} out of {questions.length} questions correct!</p>
+            <p><strong>Difficulty:</strong> {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</p>
           </div>
+          
+          {aiFeedback && (
+            <div className="ai-session-summary">
+              <h3>🤖 AI Tutor Analysis</h3>
+              
+              {aiStatus && (
+                <div className="ai-analytics-grid">
+                  <div className="ai-metric">
+                    <span className="ai-metric-value">{aiStatus.difficulty}</span>
+                    <div className="ai-metric-label">Final Difficulty</div>
+                  </div>
+                  <div className="ai-metric">
+                    <span className="ai-metric-value">{aiStatus.performance.toFixed(1)}%</span>
+                    <div className="ai-metric-label">AI Performance</div>
+                  </div>
+                  <div className="ai-metric">
+                    <span className="ai-metric-value">{aiStatus.currentStreak}</span>
+                    <div className="ai-metric-label">Current Streak</div>
+                  </div>
+                  <div className="ai-metric">
+                    <span className="ai-metric-value">{aiStatus.questionsCompleted}</span>
+                    <div className="ai-metric-label">Total Questions</div>
+                  </div>
+                </div>
+              )}
+              
+              {aiFeedback.encouragement && (
+                <div className="ai-encouragement-section">
+                  <h4>🎆 AI Encouragement</h4>
+                  <p className="ai-encouragement">{aiFeedback.encouragement}</p>
+                </div>
+              )}
+              
+              {aiFeedback.insights && aiFeedback.insights.length > 0 && (
+                <div className="ai-insights-section">
+                  <h4>💡 Learning Insights</h4>
+                  <div className="ai-insights">
+                    {aiFeedback.insights.map((insight, idx) => (
+                      <div key={idx} className="insight-item">{insight}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {aiFeedback.recommendations && aiFeedback.recommendations.length > 0 && (
+                <div className="ai-recommendations-section">
+                  <h4>🎯 Next Steps</h4>
+                  <div className="ai-recommendations">
+                    <ul>
+                      {aiFeedback.recommendations.map((rec, idx) => (
+                        <li key={idx}>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+              
+              {aiFeedback.achievements && aiFeedback.achievements.length > 0 && (
+                <div className="achievements-section">
+                  <h4>🏆 Achievements</h4>
+                  <div className="achievements">
+                    {aiFeedback.achievements.map((achievement, idx) => (
+                      <span key={idx} className="achievement-badge">{achievement}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {aiFeedback.sessionSummary && aiFeedback.sessionSummary.difficultyProgression && (
+                <div className="difficulty-progression-section">
+                  <h4>📊 Difficulty Progression</h4>
+                  <div className="difficulty-progression">
+                    <div className="progression-info">
+                      <div className="current-difficulty">
+                        <span className="difficulty-label">This Session:</span>
+                        <span className={`difficulty-badge difficulty-${aiFeedback.sessionSummary.difficultyProgression.current}`}>
+                          {aiFeedback.sessionSummary.difficultyProgression.current.charAt(0).toUpperCase() + aiFeedback.sessionSummary.difficultyProgression.current.slice(1)}
+                        </span>
+                      </div>
+                      
+                      <div className="accuracy-info">
+                        <span className="accuracy-label">Session Accuracy:</span>
+                        <span className="accuracy-value">
+                          {(aiFeedback.sessionSummary.sessionAccuracy * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      
+                      <div className="next-difficulty">
+                        <span className="difficulty-label">Next Session:</span>
+                        <span className={`difficulty-badge difficulty-${aiFeedback.sessionSummary.difficultyProgression.next}`}>
+                          {aiFeedback.sessionSummary.difficultyProgression.next.charAt(0).toUpperCase() + aiFeedback.sessionSummary.difficultyProgression.next.slice(1)}
+                          {aiFeedback.sessionSummary.difficultyProgression.current !== aiFeedback.sessionSummary.difficultyProgression.next && (
+                            <span className="progression-arrow">
+                              {aiFeedback.sessionSummary.difficultyProgression.next === 'hard' ? ' ⬆️' : 
+                               aiFeedback.sessionSummary.difficultyProgression.next === 'easy' ? ' ⬇️' : 
+                               aiFeedback.sessionSummary.difficultyProgression.next === 'medium' && aiFeedback.sessionSummary.difficultyProgression.current === 'easy' ? ' ⬆️' : ' ⬇️'}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="progression-reason">
+                      <p className="reason-text">{aiFeedback.sessionSummary.difficultyProgression.reason}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {false && (
+            <div className="encouragement-section">
+              {percentage >= 80 ? (
+                <div className="great-job">
+                  <h3>🌟 Outstanding work!</h3>
+                  <p>You have excellent knowledge of shapes and colors!</p>
+                </div>
+              ) : percentage >= 60 ? (
+                <div className="good-job">
+                  <h3>👍 Good job!</h3>
+                  <p>You're learning well! Keep practicing to improve even more.</p>
+                </div>
+              ) : (
+                <div className="keep-trying">
+                  <h3>💪 Keep trying!</h3>
+                  <p>Practice makes perfect. You're on the right track!</p>
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className="result-actions">
             <button 
               className="btn btn-primary" 
               onClick={() => navigateTo('dashboard')}
             >
-              Back to Dashboard
+              🏠 Back to Dashboard
             </button>
+            {true && (
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  // Reset for AI-powered retry
+                  setShowResult(false);
+                  setCurrentQuestionIndex(0);
+                  setScore(0);
+                  resetQuestionState();
+                  console.log('🔄 Starting new AI-powered Shapes & Colors session');
+                }}
+              >
+                🤖 AI Remix Quiz
+              </button>
+            )}
             <button 
               className="btn btn-secondary" 
               onClick={() => window.location.reload()}
             >
-              Try Again
+              🔄 Try Again
             </button>
           </div>
         </div>
@@ -456,9 +812,19 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
       <div className="quiz-header">
         <div className="quiz-info">
           <h2>🎨 Shapes & Colors</h2>
-          <div className="progress-info">
-            <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-            <span className="difficulty-badge difficulty-{difficulty}">{difficulty}</span>
+          <div className="quiz-meta">
+            <div className="progress-info">
+              <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
+              <span className={`difficulty-badge difficulty-${difficulty}`}>{difficulty.toUpperCase()}</span>
+            </div>
+            {aiStatus && (
+              <div className="ai-status">
+                <span className="ai-indicator" title="AI Tutor Active">
+                  🤖 AI: {aiStatus.difficulty} | Performance: {aiStatus.performance.toFixed(0)}%
+                  {aiStatus.currentStreak > 0 && ` | Streak: ${aiStatus.currentStreak}`}
+                </span>
+              </div>
+            )}
           </div>
         </div>
         <div className="progress-bar">
@@ -777,34 +1143,93 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
 
         {currentQuestion.type === 'construction' && (
           <div className="construction-question">
+            <div className="construction-instructions">
+              <h4>🤖 Build Your Robot!</h4>
+              <p>Click the shapes below to add robot parts. Then drag them to the right spot to finish your robot:</p>
+              <div className="robot-guide">
+                <span>🔺 Triangle = Head (top)</span>
+                <span>⬜ Square = Body (middle)</span>
+                <span>⬛ Rectangle = Arms & Legs (sides/bottom)</span>
+                <span>⚪ Circle = Eyes (on head/body)</span>
+              </div>
+              <div className="robot-reference">
+                <svg width="90" height="140" style={{marginTop: 8}}>
+                  <polygon points="45,10 15,50 75,50" fill="#B3E5FC" stroke="#333" strokeWidth="2" />
+                  <rect x="20" y="50" width="50" height="50" fill="#90CAF9" stroke="#333" strokeWidth="2" />
+                  <rect x="0" y="60" width="20" height="15" fill="#AED581" stroke="#333" strokeWidth="2" />
+                  <rect x="70" y="60" width="20" height="15" fill="#AED581" stroke="#333" strokeWidth="2" />
+                  <rect x="30" y="100" width="10" height="30" fill="#FFD54F" stroke="#333" strokeWidth="2" />
+                  <rect x="50" y="100" width="10" height="30" fill="#FFD54F" stroke="#333" strokeWidth="2" />
+                  <circle cx="35" cy="35" r="6" fill="#fff" stroke="#333" strokeWidth="2" />
+                  <circle cx="55" cy="35" r="6" fill="#fff" stroke="#333" strokeWidth="2" />
+                </svg>
+                <div style={{fontSize: '12px', color: '#555', marginTop: 4}}>Robot Example</div>
+              </div>
+            </div>
             <div className="construction-tools">
               <h4>Choose shapes and colors:</h4>
               <div className="shape-tools">
                 {currentQuestion.tools.map((shape, index) => (
-                  <button
-                    key={index}
-                    className="tool-btn"
-                    onClick={() => {
-                      const canvas = document.querySelector('.construction-canvas');
-                      const rect = canvas.getBoundingClientRect();
-                      addConstructedShape(shape, currentQuestion.colors[0], {
-                        x: Math.random() * 200,
-                        y: Math.random() * 200
-                      });
-                    }}
-                  >
-                    {generateShapeSVG(shape, '#ccc', 40)}
-                  </button>
+                  <div className="shape-tool-container">
+                    <button
+                      key={index}
+                      className="tool-btn"
+                      onClick={() => {
+                        // Smart positioning for house building
+                        const suggestedPosition = getSuggestedPosition(shape, constructedShapes);
+                        addConstructedShape(shape, currentQuestion.colors[index % currentQuestion.colors.length], suggestedPosition);
+                      }}
+                    >
+                      {generateShapeSVG(shape, currentQuestion.colors[index % currentQuestion.colors.length], 40)}
+                      <span className="shape-label">{shape}</span>
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
             <div className="construction-area">
-              <div className="construction-canvas">
+              <div 
+                className="construction-canvas"
+                onDragOver={(e) => {
+                  e.preventDefault(); // Allow drop
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const shapeId = e.dataTransfer.getData('text/plain');
+                  const canvas = e.currentTarget;
+                  const rect = canvas.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  
+                  // Update shape position
+                  setConstructedShapes(prev => 
+                    prev.map(shape => 
+                      shape.id === parseInt(shapeId) 
+                        ? { ...shape, x: x - 30, y: y - 30 } // Center the shape
+                        : shape
+                    )
+                  );
+                }}
+              >
                 {constructedShapes.map((shape) => (
                   <div
                     key={shape.id}
-                    className="constructed-shape"
-                    style={{ left: shape.x, top: shape.y, position: 'absolute' }}
+                    className="constructed-shape draggable"
+                    style={{ 
+                      left: shape.x, 
+                      top: shape.y, 
+                      position: 'absolute',
+                      cursor: 'move',
+                      userSelect: 'none'
+                    }}
+                    draggable={true}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', shape.id);
+                      e.target.style.opacity = '0.5';
+                    }}
+                    onDragEnd={(e) => {
+                      e.target.style.opacity = '1';
+                    }}
                   >
                     {generateShapeSVG(shape.shape, shape.color, 60)}
                   </div>
@@ -819,16 +1244,47 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
             {feedback.message}
           </div>
         )}
+        
+        {aiFeedback && (
+          <div className="ai-feedback">
+            <div className="ai-feedback-header">
+              <span className="ai-icon">🧠</span>
+              <strong>AI Tutor Feedback</strong>
+            </div>
+            <div className="ai-feedback-content">
+              {aiFeedback.aiInsight && (
+                <p className="ai-insight">{aiFeedback.aiInsight}</p>
+              )}
+              {aiFeedback.suggestion && (
+                <p className="ai-suggestion">💡 <em>{aiFeedback.suggestion}</em></p>
+              )}
+              {aiFeedback.encouragement && (
+                <p className="ai-encouragement">{aiFeedback.encouragement}</p>
+              )}
+              {aiFeedback.insights && aiFeedback.insights.length > 0 && (
+                <div className="ai-insights">
+                  {aiFeedback.insights.map((insight, idx) => (
+                    <p key={idx} className="insight-item">{insight}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="quiz-actions">
-        <button 
-          className="btn btn-primary" 
-          onClick={checkAnswer} 
-          disabled={isChecking || (!selectedOption && !textInput && matchedPairs.size === 0 && sortedItems.length === 0 && tracedPath.length === 0 && constructedShapes.length === 0)}
-        >
-          {isChecking ? 'Checking...' : 'Check Answer'}
-        </button>
+        <div className="action-buttons">
+          <button 
+            className="btn btn-primary" 
+            onClick={checkAnswer} 
+            disabled={isChecking || (!selectedOption && !textInput && matchedPairs.size === 0 && sortedItems.length === 0 && tracedPath.length === 0 && constructedShapes.length === 0)}
+          >
+            {isChecking ? 'AI Analyzing...' : 'Check Answer'}
+          </button>
+        </div>
+        
+        {/* AI is always enabled - toggle removed */}
       </div>
     </div>
   );

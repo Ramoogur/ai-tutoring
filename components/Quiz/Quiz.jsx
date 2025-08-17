@@ -2,16 +2,27 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { makeClockSvg } from '../../utils/graphics';
 import ShapesColors from './ShapesColors/ShapesColors';
+import Time from './Time/Time';
 import { basicQuestions } from '../../data/basicQuestions';
+import { aiController } from '../../utils/aiController';
+import { aiTutor } from '../../utils/aiTutor';
 
 // `difficulty` is now determined automatically based on past performance
 const Quiz = ({ topic, user, navigateTo }) => {
   // Check if this is a shapes and colors topic
   const isShapesColors = topic && (topic.name.toLowerCase().includes('shape') || topic.name.toLowerCase().includes('colour') || topic.name.toLowerCase().includes('color'));
   
+  // Check if this is a time topic
+  const isTime = topic && topic.name.toLowerCase().includes('time');
+  
   // If it's shapes and colors, use the specialized component
   if (isShapesColors) {
     return <ShapesColors topic={topic} user={user} navigateTo={navigateTo} />;
+  }
+  
+  // If it's time, use the Time component
+  if (isTime) {
+    return <Time topic={topic} user={user} navigateTo={navigateTo} />;
   }
   const [translated, setTranslated] = useState(null);
   const [transLoading, setTransLoading] = useState(false);
@@ -27,6 +38,10 @@ const Quiz = ({ topic, user, navigateTo }) => {
   const [clockUrl, setClockUrl] = useState(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const speakingUtteranceRef = useRef(null);
+  const [aiEnabled, setAiEnabled] = useState(true);
+  const [aiStatus, setAiStatus] = useState(null);
+  const [questionStartTime, setQuestionStartTime] = useState(null);
+  const [aiFeedback, setAiFeedback] = useState(null);
 
   // --- Helper functions ---
   const getDifficultyFromAccuracy = (acc) => {
@@ -169,20 +184,58 @@ const Quiz = ({ topic, user, navigateTo }) => {
     (async () => {
       // Show loading state
       setQuestions([]);
+      setCurrentQuestionIndex(0);
+      setScore(0);
+      setShowResult(false);
+      setFeedback(null);
+      setAiFeedback(null);
 
-      // Determine difficulty based on previous stats
-      const difficultyAuto = await fetchDifficulty(user.id, topic.id);
-      setDifficulty(difficultyAuto);
+      // Initialize AI system for this topic
+      if (aiEnabled) {
+        console.log(`🤖 Initializing AI Tutor for ${topic.name}`);
+        aiController.startQuizSession(topic.name);
+        setAiStatus(aiController.getAIStatus());
+      }
+
+      // Determine difficulty - AI vs traditional method
+      let difficultyLevel;
+      if (aiEnabled) {
+        // AI determines difficulty dynamically
+        difficultyLevel = aiTutor.getDifficultyName(aiTutor.currentDifficulty).toLowerCase();
+        console.log(`🎯 AI selected difficulty: ${difficultyLevel}`);
+      } else {
+        // Traditional method using database stats
+        const difficultyAuto = await fetchDifficulty(user.id, topic.id);
+        difficultyLevel = difficultyAuto;
+      }
+      setDifficulty(difficultyLevel);
 
       // Simulate loading delay for better UX
       setTimeout(async () => {
-        const difficultyLevel = difficultyAuto;
         let quizQuestions = [];
 
-        // Use basic questions for non-shapes topics
+        // Get available questions for this topic
         const topicQuestions = basicQuestions[topic.name];
-        if (topicQuestions && topicQuestions[difficultyLevel]) {
-          quizQuestions = topicQuestions[difficultyLevel].slice(0, 5);
+        if (topicQuestions) {
+          // Collect all questions across difficulties for AI selection
+          const allQuestions = [
+            ...(topicQuestions.easy || []).map(q => ({ ...q, difficulty: 'easy' })),
+            ...(topicQuestions.medium || []).map(q => ({ ...q, difficulty: 'medium' })),
+            ...(topicQuestions.hard || []).map(q => ({ ...q, difficulty: 'hard' }))
+          ];
+
+          if (aiEnabled && allQuestions.length > 0) {
+            // Let AI select optimal questions
+            quizQuestions = aiController.prepareQuestions(allQuestions, 5);
+            console.log(`🧠 AI selected ${quizQuestions.length} personalized questions`);
+          } else {
+            // Traditional difficulty-based selection
+            if (topicQuestions[difficultyLevel]) {
+              quizQuestions = topicQuestions[difficultyLevel].slice(0, 5);
+            } else {
+              quizQuestions = allQuestions.slice(0, 5);
+            }
+          }
         } else {
           // Default fallback questions
           quizQuestions = [
@@ -190,14 +243,23 @@ const Quiz = ({ topic, user, navigateTo }) => {
               id: 1,
               question: `Let's practice ${topic.name}!`,
               options: ['Great!', 'Ready!', 'Let\'s go!', 'Awesome!'],
-              correct: 'Great!'
+              correct: 'Great!',
+              difficulty: 'easy',
+              type: 'motivation'
             }
           ];
         }
+        
         setQuestions(quizQuestions);
-      }, 1000);
+        
+        // Start tracking the first question if AI is enabled
+        if (aiEnabled && quizQuestions.length > 0) {
+          const questionTrackingData = aiController.startQuestion(quizQuestions[0]);
+          setQuestionStartTime(questionTrackingData.startTime);
+        }
+      }, aiEnabled ? 1500 : 1000); // Slightly longer for AI processing
     })();
-  }, [topic]);
+  }, [topic, aiEnabled]);
 
   // Generate clock image when current question changes (for Time topic)
   useEffect(() => {
@@ -227,10 +289,33 @@ const Quiz = ({ topic, user, navigateTo }) => {
     const currentQuestion = questions[currentQuestionIndex];
     const isCorrect = selectedOption === currentQuestion.correct;
 
-    // Set feedback
+    // AI Analysis and Feedback
+    let aiAnalysisResult = null;
+    if (aiEnabled) {
+      aiAnalysisResult = aiController.processAnswer(currentQuestion, isCorrect, selectedOption);
+      console.log(`🔍 AI Analysis: ${isCorrect ? 'Correct' : 'Incorrect'} - ${aiAnalysisResult.aiFeedback.message}`);
+      
+      // Update AI status
+      setAiStatus(aiController.getAIStatus());
+      
+      // Set AI feedback
+      setAiFeedback(aiAnalysisResult.aiFeedback);
+      
+      // Log difficulty adjustments
+      if (aiAnalysisResult.difficultyAdjustment) {
+        console.log(`🔄 AI adjusted difficulty to: ${aiAnalysisResult.newDifficulty}`);
+        setDifficulty(aiAnalysisResult.newDifficulty.toLowerCase());
+      }
+    }
+
+    // Set standard feedback
+    const feedbackMessage = aiEnabled && aiAnalysisResult ? 
+      aiAnalysisResult.aiFeedback.message : 
+      (isCorrect ? 'Correct! 🎉' : `Incorrect. The correct answer is ${currentQuestion.correct}`);
+    
     setFeedback({
       isCorrect,
-      message: isCorrect ? 'Correct! 🎉' : `Incorrect. The correct answer is ${currentQuestion.correct}`
+      message: feedbackMessage
     });
 
     // Update score if correct
@@ -241,19 +326,38 @@ const Quiz = ({ topic, user, navigateTo }) => {
     // Move to next question after a delay
     setTimeout(() => {
       if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex(prevIndex => prevIndex + 1);
+        const nextIndex = currentQuestionIndex + 1;
+        setCurrentQuestionIndex(nextIndex);
         setSelectedOption(null);
         setFeedback(null);
+        setAiFeedback(null);
+        
+        // Start tracking the next question for AI
+        if (aiEnabled && questions[nextIndex]) {
+          const questionTrackingData = aiController.startQuestion(questions[nextIndex]);
+          setQuestionStartTime(questionTrackingData.startTime);
+        }
       } else {
         // Quiz completed
         finishQuiz();
       }
       setIsChecking(false);
-    }, 1500);
+    }, aiEnabled ? 2000 : 1500); // Longer delay for AI feedback
   };
 
   const finishQuiz = async () => {
     setShowResult(true);
+    
+    // Complete AI session and get comprehensive feedback
+    let aiSessionSummary = null;
+    if (aiEnabled) {
+      aiSessionSummary = aiController.completeQuizSession();
+      console.log('🎓 AI Session Summary:', aiSessionSummary);
+      setAiFeedback(aiSessionSummary.aiFeedback);
+      
+      // Update final AI status
+      setAiStatus(aiController.getAIStatus());
+    }
     
     // Get current date for history
     const today = new Date();
@@ -299,14 +403,24 @@ const Quiz = ({ topic, user, navigateTo }) => {
     updatedUser.progress.topicProgress[topic.name].totalQuestions += questions.length;
     updatedUser.progress.topicProgress[topic.name].completed = true;
     
-    // Add to quiz history
-    updatedUser.progress.quizHistory.unshift({
+    // Add to quiz history with AI analytics
+    const historyEntry = {
       topic: topic.name,
       difficulty,
       score,
       totalQuestions: questions.length,
-      date: dateString
-    });
+      date: dateString,
+      aiEnabled,
+      ...(aiSessionSummary && {
+        aiAnalytics: {
+          finalDifficulty: aiSessionSummary.finalDifficulty,
+          performance: aiSessionSummary.performance,
+          streak: aiSessionSummary.currentStreak,
+          recommendations: aiSessionSummary.nextSession
+        }
+      })
+    };
+    updatedUser.progress.quizHistory.unshift(historyEntry);
     
     // Keep history limited to last 10 quizzes
     if (updatedUser.progress.quizHistory.length > 10) {
@@ -351,17 +465,121 @@ const Quiz = ({ topic, user, navigateTo }) => {
   }
 
   if (showResult) {
+    const accuracy = Math.round((score / questions.length) * 100);
+    
     return (
-      <div className="quiz-container result-container">
-        <h2>Quiz Completed!</h2>
-        <p>Topic: {topic.name}</p>
-        <p>Difficulty: {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</p>
-        <div className="score">{score} / {questions.length}</div>
-        <p>Accuracy: {Math.round((score / questions.length) * 100)}%</p>
+      <div className={`quiz-container result-container ${aiEnabled ? 'ai-enhanced' : ''}`}>
+        <h2>🎓 Quiz Completed!</h2>
+        <div className="basic-results">
+          <p><strong>Topic:</strong> {topic.name}</p>
+          <p><strong>Difficulty:</strong> {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</p>
+          <div className="score">{score} / {questions.length}</div>
+          <p><strong>Accuracy:</strong> {accuracy}%</p>
+        </div>
         
-        <button className="btn" onClick={() => navigateTo('dashboard')}>
-          Return to Dashboard
-        </button>
+        {aiEnabled && aiFeedback && (
+          <div className="ai-session-summary">
+            <h3>🤖 AI Tutor Analysis</h3>
+            
+            {aiStatus && (
+              <div className="ai-analytics-grid">
+                <div className="ai-metric">
+                  <span className="ai-metric-value">{aiStatus.difficulty}</span>
+                  <div className="ai-metric-label">Final Difficulty</div>
+                </div>
+                <div className="ai-metric">
+                  <span className="ai-metric-value">{aiStatus.performance.toFixed(1)}%</span>
+                  <div className="ai-metric-label">AI Performance</div>
+                </div>
+                <div className="ai-metric">
+                  <span className="ai-metric-value">{aiStatus.currentStreak}</span>
+                  <div className="ai-metric-label">Current Streak</div>
+                </div>
+                <div className="ai-metric">
+                  <span className="ai-metric-value">{aiStatus.questionsCompleted}</span>
+                  <div className="ai-metric-label">Total Questions</div>
+                </div>
+              </div>
+            )}
+            
+            {aiFeedback.encouragement && (
+              <div className="ai-encouragement-section">
+                <h4>🎆 Encouragement</h4>
+                <p className="ai-encouragement">{aiFeedback.encouragement}</p>
+              </div>
+            )}
+            
+            {aiFeedback.insights && aiFeedback.insights.length > 0 && (
+              <div className="ai-insights-section">
+                <h4>💡 Learning Insights</h4>
+                <div className="ai-insights">
+                  {aiFeedback.insights.map((insight, idx) => (
+                    <div key={idx} className="insight-item">{insight}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {aiFeedback.recommendations && aiFeedback.recommendations.length > 0 && (
+              <div className="ai-recommendations-section">
+                <h4>🎯 Next Steps</h4>
+                <div className="ai-recommendations">
+                  <ul>
+                    {aiFeedback.recommendations.map((rec, idx) => (
+                      <li key={idx}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+            
+            {aiFeedback.nextSteps && aiFeedback.nextSteps.length > 0 && (
+              <div className="next-steps-section">
+                <h4>📈 Recommended Focus Areas</h4>
+                <ul className="next-steps-list">
+                  {aiFeedback.nextSteps.map((step, idx) => (
+                    <li key={idx}>{step}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {aiFeedback.achievements && aiFeedback.achievements.length > 0 && (
+              <div className="achievements-section">
+                <h4>🏆 Achievements</h4>
+                <div className="achievements">
+                  {aiFeedback.achievements.map((achievement, idx) => (
+                    <span key={idx} className="achievement-badge">{achievement}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        <div className="result-actions">
+          <button className="btn primary" onClick={() => navigateTo('dashboard')}>
+            🏠 Return to Dashboard
+          </button>
+          {aiEnabled && (
+            <button 
+              className="btn secondary" 
+              onClick={() => {
+                // Reset for another round
+                setShowResult(false);
+                setCurrentQuestionIndex(0);
+                setScore(0);
+                setSelectedOption(null);
+                setFeedback(null);
+                setAiFeedback(null);
+                // Let AI prepare new questions
+                console.log('🔄 Starting new AI-powered session');
+              }}
+            >
+              🤖 AI Remix Quiz
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -373,7 +591,17 @@ const Quiz = ({ topic, user, navigateTo }) => {
     <div className="quiz-container">
       <div className="quiz-header">
         <h2>{topic.name} - {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</h2>
-        <p>Question {currentQuestionIndex + 1} of {questions.length}</p>
+        <div className="quiz-meta">
+          <p>Question {currentQuestionIndex + 1} of {questions.length}</p>
+          {aiEnabled && aiStatus && (
+            <div className="ai-status">
+              <span className="ai-indicator" title="AI Tutor Active">
+                🤖 AI: {aiStatus.difficulty} | Performance: {aiStatus.performance.toFixed(0)}%
+                {aiStatus.currentStreak > 0 && ` | Streak: ${aiStatus.currentStreak}`}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="quiz-progress">
@@ -495,16 +723,75 @@ const Quiz = ({ topic, user, navigateTo }) => {
             {feedback.message}
           </div>
         )}
+        
+        {aiFeedback && (
+          <div className="ai-feedback">
+            <div className="ai-feedback-header">
+              <span className="ai-icon">🧠</span>
+              <strong>AI Tutor Feedback</strong>
+            </div>
+            <div className="ai-feedback-content">
+              {aiFeedback.aiInsight && (
+                <p className="ai-insight">{aiFeedback.aiInsight}</p>
+              )}
+              {aiFeedback.suggestion && (
+                <p className="ai-suggestion">💡 <em>{aiFeedback.suggestion}</em></p>
+              )}
+              {aiFeedback.encouragement && (
+                <p className="ai-encouragement">{aiFeedback.encouragement}</p>
+              )}
+              {aiFeedback.insights && aiFeedback.insights.length > 0 && (
+                <div className="ai-insights">
+                  {aiFeedback.insights.map((insight, idx) => (
+                    <p key={idx} className="insight-item">{insight}</p>
+                  ))}
+                </div>
+              )}
+              {aiFeedback.recommendations && aiFeedback.recommendations.length > 0 && (
+                <div className="ai-recommendations">
+                  <strong>Recommendations:</strong>
+                  <ul>
+                    {aiFeedback.recommendations.map((rec, idx) => (
+                      <li key={idx}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="quiz-actions">
-        <button 
-          className="btn" 
-          onClick={checkAnswer} 
-          disabled={!selectedOption || isChecking}
-        >
-          {isChecking ? 'Checking...' : 'Check Answer'}
-        </button>
+        <div className="action-buttons">
+          <button 
+            className="btn primary" 
+            onClick={checkAnswer} 
+            disabled={!selectedOption || isChecking}
+          >
+            {isChecking ? (aiEnabled ? 'AI Analyzing...' : 'Checking...') : 'Check Answer'}
+          </button>
+        </div>
+        
+        <div className="ai-controls">
+          <button 
+            className={`ai-toggle ${aiEnabled ? 'ai-enabled' : 'ai-disabled'}`}
+            onClick={() => {
+              const newAiState = !aiEnabled;
+              setAiEnabled(newAiState);
+              if (newAiState) {
+                aiController.enableAI();
+                console.log('🤖 AI Tutor enabled by user');
+              } else {
+                aiController.disableAI();
+                console.log('📚 AI Tutor disabled by user');
+              }
+            }}
+            title={aiEnabled ? 'Disable AI Tutor' : 'Enable AI Tutor'}
+          >
+            {aiEnabled ? '🤖 AI On' : '📚 AI Off'}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -188,7 +188,7 @@ export const shapesColorsQuestions = {
       id: 14,
       type: 'construction',
       category: 'shapes',
-      question: 'Draw a house using these shapes: triangle (roof), square (base), rectangle (door)',
+      question: 'Draw a robot using these shapes: triangle, square, rectangle, circle',
       tools: ['triangle', 'square', 'rectangle', 'circle'],
       colors: ['#F44336', '#2196F3', '#4CAF50', '#FFEB3B'],
       visual: true,
