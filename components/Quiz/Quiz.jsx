@@ -3,6 +3,7 @@ import { supabase } from '../../utils/supabaseClient';
 import { makeClockSvg } from '../../utils/graphics';
 import ShapesColors from './ShapesColors/ShapesColors';
 import Time from './Time/Time';
+import NumbersCounting from './NumbersCounting/NumbersCounting';
 import { basicQuestions } from '../../data/basicQuestions';
 import { aiController } from '../../utils/aiController';
 import { aiTutor } from '../../utils/aiTutor';
@@ -15,6 +16,9 @@ const Quiz = ({ topic, user, navigateTo }) => {
   // Check if this is a time topic
   const isTime = topic && topic.name.toLowerCase().includes('time');
   
+  // Check if this is a numbers and counting topic
+  const isNumbersCounting = topic && (topic.name.toLowerCase().includes('number') || topic.name.toLowerCase().includes('count'));
+  
   // If it's shapes and colors, use the specialized component
   if (isShapesColors) {
     return <ShapesColors topic={topic} user={user} navigateTo={navigateTo} />;
@@ -23,6 +27,11 @@ const Quiz = ({ topic, user, navigateTo }) => {
   // If it's time, use the Time component
   if (isTime) {
     return <Time topic={topic} user={user} navigateTo={navigateTo} />;
+  }
+  
+  // If it's numbers and counting, use the NumbersCounting component
+  if (isNumbersCounting) {
+    return <NumbersCounting topic={topic} user={user} navigateTo={navigateTo} />;
   }
   const [translated, setTranslated] = useState(null);
   const [transLoading, setTransLoading] = useState(false);
@@ -559,7 +568,7 @@ const Quiz = ({ topic, user, navigateTo }) => {
         
         <div className="result-actions">
           <button className="btn primary" onClick={() => navigateTo('dashboard')}>
-            🏠 Return to Dashboard
+            🏠 Return to Home
           </button>
           {aiEnabled && (
             <button 

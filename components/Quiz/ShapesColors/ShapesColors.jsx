@@ -776,7 +776,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
               className="btn btn-primary" 
               onClick={() => navigateTo('dashboard')}
             >
-              🏠 Back to Dashboard
+              🏠 Back to Home
             </button>
             {true && (
               <button 

@@ -53,7 +53,7 @@ const App = () => {
         <div className="container nav-container">
           <a href="#" className="logo" onClick={() => navigateTo('dashboard')}>Math<span>Whiz</span></a>
           <div className="nav-links">
-            <a href="#" onClick={() => navigateTo('dashboard')}>Dashboard</a>
+            <a href="#" onClick={() => navigateTo('dashboard')}>Home</a>
             <a href="#" onClick={handleLogout}>Logout</a>
           </div>
         </div>
