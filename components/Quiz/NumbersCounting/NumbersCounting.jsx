@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
 import { aiController } from '../../../utils/aiController';
 import { aiTutor } from '../../../utils/aiTutor';
-import questionService from '../../../utils/questionService';
+import questionService from './questionService';
 import './NumbersCounting.css';
 
 // Static data for rendering (no longer importing from external file)
