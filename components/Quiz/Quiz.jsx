@@ -4,6 +4,7 @@ import { makeClockSvg } from '../../utils/graphics';
 import ShapesColors from './ShapesColors/ShapesColors';
 import Time from './Time/Time';
 import NumbersCounting from './NumbersCounting/NumbersCounting';
+import Addition from './Addition/Addition';
 import { basicQuestions } from '../../data/basicQuestions';
 import { aiController } from '../../utils/aiController';
 import { aiTutor } from '../../utils/aiTutor';
@@ -19,6 +20,9 @@ const Quiz = ({ topic, user, navigateTo }) => {
   // Check if this is a numbers and counting topic
   const isNumbersCounting = topic && (topic.name.toLowerCase().includes('number') || topic.name.toLowerCase().includes('count'));
   
+  // Check if this is an addition topic
+  const isAddition = topic && (topic.name.toLowerCase().includes('addition') || topic.name.toLowerCase().includes('add'));
+  
   // If it's shapes and colors, use the specialized component
   if (isShapesColors) {
     return <ShapesColors topic={topic} user={user} navigateTo={navigateTo} />;
@@ -32,6 +36,11 @@ const Quiz = ({ topic, user, navigateTo }) => {
   // If it's numbers and counting, use the NumbersCounting component
   if (isNumbersCounting) {
     return <NumbersCounting topic={topic} user={user} navigateTo={navigateTo} />;
+  }
+  
+  // If it's addition, use the Addition component
+  if (isAddition) {
+    return <Addition topic={topic} user={user} navigateTo={navigateTo} />;
   }
   const [translated, setTranslated] = useState(null);
   const [transLoading, setTransLoading] = useState(false);
