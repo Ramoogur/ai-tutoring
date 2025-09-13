@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { makeClockSvg } from '../../utils/graphics';
 import ShapesColors from './ShapesColors/ShapesColors';
 import Time from './Time/Time';
 import NumbersCounting from './NumbersCounting/NumbersCounting';
 import Addition from './Addition/Addition';
 import Measurement from './Measurement/Measurement';
-import { basicQuestions } from '../../data/basicQuestions';
+import OrdinalNumbers from './OrdinalNumbers/OrdinalNumbers';
+import Patterns from './Patterns/Patterns';
 import { aiController } from '../../utils/aiController';
 import { aiTutor } from '../../utils/aiTutor';
 
@@ -18,14 +18,20 @@ const Quiz = ({ topic, user, navigateTo }) => {
   // Check if this is a time topic
   const isTime = topic && topic.name.toLowerCase().includes('time');
   
-  // Check if this is a numbers and counting topic
-  const isNumbersCounting = topic && (topic.name.toLowerCase().includes('number') || topic.name.toLowerCase().includes('count'));
+  // Check if this is an ordinal numbers topic (check FIRST before general numbers)
+  const isOrdinalNumbers = topic && (topic.name.toLowerCase().includes('ordinal') || topic.name.toLowerCase().includes('position') || topic.name.toLowerCase().includes('1st') || topic.name.toLowerCase().includes('2nd') || topic.name.toLowerCase().includes('3rd'));
+  
+  // Check if this is a numbers and counting topic (but NOT ordinal numbers)
+  const isNumbersCounting = topic && !isOrdinalNumbers && (topic.name.toLowerCase().includes('number') || topic.name.toLowerCase().includes('count'));
   
   // Check if this is an addition topic
   const isAddition = topic && (topic.name.toLowerCase().includes('addition') || topic.name.toLowerCase().includes('add'));
   
   // Check if this is a measurement topic
   const isMeasurement = topic && (topic.name.toLowerCase().includes('measurement') || topic.name.toLowerCase().includes('comparison') || topic.name.toLowerCase().includes('measure'));
+  
+  // Check if this is a patterns topic
+  const isPatterns = topic && (topic.name.toLowerCase().includes('pattern') || topic.name.toLowerCase().includes('sequence') || topic.name.toLowerCase().includes('repeat'));
   
   // If it's shapes and colors, use the specialized component
   if (isShapesColors) {
@@ -35,6 +41,11 @@ const Quiz = ({ topic, user, navigateTo }) => {
   // If it's time, use the Time component
   if (isTime) {
     return <Time topic={topic} user={user} navigateTo={navigateTo} />;
+  }
+  
+  // If it's ordinal numbers, use the OrdinalNumbers component (check BEFORE general numbers)
+  if (isOrdinalNumbers) {
+    return <OrdinalNumbers topic={topic} user={user} navigateTo={navigateTo} />;
   }
   
   // If it's numbers and counting, use the NumbersCounting component
@@ -50,6 +61,11 @@ const Quiz = ({ topic, user, navigateTo }) => {
   // If it's measurement, use the Measurement component
   if (isMeasurement) {
     return <Measurement topic={topic} user={user} navigateTo={navigateTo} />;
+  }
+  
+  // If it's patterns, use the Patterns component
+  if (isPatterns) {
+    return <Patterns topic={topic} user={user} navigateTo={navigateTo} />;
   }
   const [translated, setTranslated] = useState(null);
   const [transLoading, setTransLoading] = useState(false);
@@ -241,41 +257,17 @@ const Quiz = ({ topic, user, navigateTo }) => {
       setTimeout(async () => {
         let quizQuestions = [];
 
-        // Get available questions for this topic
-        const topicQuestions = basicQuestions[topic.name];
-        if (topicQuestions) {
-          // Collect all questions across difficulties for AI selection
-          const allQuestions = [
-            ...(topicQuestions.easy || []).map(q => ({ ...q, difficulty: 'easy' })),
-            ...(topicQuestions.medium || []).map(q => ({ ...q, difficulty: 'medium' })),
-            ...(topicQuestions.hard || []).map(q => ({ ...q, difficulty: 'hard' }))
-          ];
-
-          if (aiEnabled && allQuestions.length > 0) {
-            // Let AI select optimal questions
-            quizQuestions = aiController.prepareQuestions(allQuestions, 5);
-            console.log(`🧠 AI selected ${quizQuestions.length} personalized questions`);
-          } else {
-            // Traditional difficulty-based selection
-            if (topicQuestions[difficultyLevel]) {
-              quizQuestions = topicQuestions[difficultyLevel].slice(0, 5);
-            } else {
-              quizQuestions = allQuestions.slice(0, 5);
-            }
+        // Default fallback questions - basicQuestions removed as specialized components handle their own data
+        quizQuestions = [
+          {
+            id: 1,
+            question: `Let's practice ${topic.name}!`,
+            options: ['Great!', 'Ready!', 'Let\'s go!', 'Awesome!'],
+            correct: 'Great!',
+            difficulty: 'easy',
+            type: 'motivation'
           }
-        } else {
-          // Default fallback questions
-          quizQuestions = [
-            {
-              id: 1,
-              question: `Let's practice ${topic.name}!`,
-              options: ['Great!', 'Ready!', 'Let\'s go!', 'Awesome!'],
-              correct: 'Great!',
-              difficulty: 'easy',
-              type: 'motivation'
-            }
-          ];
-        }
+        ];
         
         setQuestions(quizQuestions);
         
@@ -294,8 +286,8 @@ const Quiz = ({ topic, user, navigateTo }) => {
       const q = questions[currentQuestionIndex];
       const timeMatch = /^\d{1,2}:\d{2}$/.test(q.correct) ? q.correct : null;
       if (timeMatch) {
-        const url = makeClockSvg(timeMatch, 220);
-        setClockUrl(url);
+        // Clock SVG generation removed - handled by Time component
+        setClockUrl(null);
       } else {
         setClockUrl(null);
       }

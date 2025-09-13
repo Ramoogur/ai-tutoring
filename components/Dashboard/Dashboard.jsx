@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { makeCountingSvg, makeAdditionSvg, makePatternSvg, makeShapeSvg } from '../../utils/graphics';
 
 const Dashboard = ({ user, startQuiz }) => {
   // Always use the user's grade from their profile
@@ -66,20 +65,6 @@ const Dashboard = ({ user, startQuiz }) => {
     : 0;
 
   const handleStartQuiz = (topic) => {
-    // Call graphics functions for specific topics
-    if (topic.name === 'Numbers & Counting') {
-      makeCountingSvg();
-    }
-    if (topic.name === 'Addition (within 10)') {
-      makeAdditionSvg();
-    }
-    if (topic.name === 'Patterns') {
-      makePatternSvg();
-    }
-    if (topic.name === 'Shapes & Colours') {
-      // Shape graphics will be handled by the ShapesColors component
-      console.log('Starting Shapes & Colours quiz...');
-    }
     // Directly start quiz; difficulty will be determined automatically
     startQuiz(topic);
   };

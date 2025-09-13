@@ -691,12 +691,241 @@ input:focus, select:focus {
 }
 
 .feedback {
-  margin-top: 20px;
+  margin: 20px 0;
   padding: 15px;
   border-radius: var(--border-radius);
+  font-weight: 500;
   text-align: center;
-  animation: fadeIn 0.3s ease;
+  animation: slideUp 0.3s ease;
+}
+
+.feedback.correct {
+  background: linear-gradient(135deg, var(--success-color), #26d0ce);
+  color: white;
+}
+
+.feedback.incorrect {
+  background: linear-gradient(135deg, var(--error-color), #ff9ff3);
+  color: white;
+}
+
+/* Pattern Analysis (describe-rule) Styles */
+.pattern-analysis {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.pattern-display {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin: 20px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 15px;
+  border: 2px solid #dee2e6;
+}
+
+.rule-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.rule-option {
+  padding: 15px 20px;
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  background: white;
+  color: #495057;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rule-option:hover {
+  border-color: #4CAF50;
+  background: linear-gradient(135deg, #f8fff9 0%, #e8f5e9 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+.rule-option.selected {
+  border-color: #4CAF50;
+  background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.3);
+}
+
+@media (max-width: 768px) {
+  .rule-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Scene Pattern (animals on fence) Styles */
+.scene-pattern {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.scene-display {
+  margin: 20px 0;
+}
+
+.scene-title {
+  font-size: 18px;
   font-weight: 600;
+  color: #495057;
+  margin-bottom: 15px;
+}
+
+.scene-items {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+  border-radius: 15px;
+  border: 3px solid #654321;
+  position: relative;
+  overflow: hidden;
+}
+
+.scene-items::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: repeating-linear-gradient(
+    90deg,
+    #654321 0px,
+    #654321 20px,
+    #8B4513 20px,
+    #8B4513 40px
+  );
+}
+
+.scene-item {
+  position: relative;
+}
+
+.animal-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  border: 3px solid white;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  background: linear-gradient(135deg, var(--bg-color), white);
+}
+
+.next-placeholder {
+  width: 60px;
+  height: 60px;
+  border: 3px dashed #666;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: #666;
+  background: rgba(255,255,255,0.8);
+}
+
+.scene-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 15px;
+  margin: 20px 0;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.scene-option {
+  padding: 15px;
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.scene-option:hover {
+  border-color: #4CAF50;
+  background: linear-gradient(135deg, #f8fff9 0%, #e8f5e9 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.2);
+}
+
+.scene-option.selected {
+  border-color: #4CAF50;
+  background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+  color: white;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(76, 175, 80, 0.3);
+}
+
+.scene-option .animal-icon {
+  width: 50px;
+  height: 50px;
+  font-size: 28px;
+  margin-bottom: 5px;
+}
+
+.scene-option span {
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.scene-option.selected span {
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .scene-items {
+    gap: 6px;
+    padding: 15px;
+  }
+  
+  .animal-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 28px;
+  }
+  
+  .next-placeholder {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+  
+  .scene-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .correct-feedback {
