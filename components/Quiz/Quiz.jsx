@@ -5,6 +5,7 @@ import ShapesColors from './ShapesColors/ShapesColors';
 import Time from './Time/Time';
 import NumbersCounting from './NumbersCounting/NumbersCounting';
 import Addition from './Addition/Addition';
+import Measurement from './Measurement/Measurement';
 import { basicQuestions } from '../../data/basicQuestions';
 import { aiController } from '../../utils/aiController';
 import { aiTutor } from '../../utils/aiTutor';
@@ -22,6 +23,9 @@ const Quiz = ({ topic, user, navigateTo }) => {
   
   // Check if this is an addition topic
   const isAddition = topic && (topic.name.toLowerCase().includes('addition') || topic.name.toLowerCase().includes('add'));
+  
+  // Check if this is a measurement topic
+  const isMeasurement = topic && (topic.name.toLowerCase().includes('measurement') || topic.name.toLowerCase().includes('comparison') || topic.name.toLowerCase().includes('measure'));
   
   // If it's shapes and colors, use the specialized component
   if (isShapesColors) {
@@ -41,6 +45,11 @@ const Quiz = ({ topic, user, navigateTo }) => {
   // If it's addition, use the Addition component
   if (isAddition) {
     return <Addition topic={topic} user={user} navigateTo={navigateTo} />;
+  }
+  
+  // If it's measurement, use the Measurement component
+  if (isMeasurement) {
+    return <Measurement topic={topic} user={user} navigateTo={navigateTo} />;
   }
   const [translated, setTranslated] = useState(null);
   const [transLoading, setTransLoading] = useState(false);
