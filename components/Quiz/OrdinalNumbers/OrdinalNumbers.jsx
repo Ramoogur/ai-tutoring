@@ -24,6 +24,7 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
   const [circledItems, setCircledItems] = useState({});
   const [raceOrder, setRaceOrder] = useState([]);
   const [podiumSlots, setPodiumSlots] = useState({});
+  const [shuffledQuestionData, setShuffledQuestionData] = useState({});
   
   // AI feedback states
   const [aiFeedback, setAiFeedback] = useState(null);
@@ -66,7 +67,7 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
           .select('current_difficulty')
           .eq('student_id', user.id)
           .eq('topic_id', topic.id)
-          .single();
+          .maybeSingle();
         
         if (studentStats?.current_difficulty) {
           savedDifficulty = studentStats.current_difficulty;
@@ -100,52 +101,51 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
       selectedQuestions = selectedQuestions.sort(() => Math.random() - 0.5);
       setQuestions(selectedQuestions);
       
-      // Set starting point for first question
+      // Set starting point for first question and pre-shuffle if needed
       if (selectedQuestions.length > 0) {
         setStartingPoint(selectedQuestions[0].starting_point || 'left');
         setQuestionStartTime(Date.now());
+        
+        // Pre-shuffle all matching questions once
+        const shuffledData = {};
+        selectedQuestions.forEach((question, index) => {
+          if (question.question_type === 'match_words_symbols') {
+            const shuffledWords = [...question.pairs].sort(() => Math.random() - 0.5);
+            const shuffledSymbols = [...question.pairs].sort(() => Math.random() - 0.5);
+            shuffledData[index] = {
+              shuffledWords,
+              shuffledSymbols
+            };
+          }
+        });
+        setShuffledQuestionData(shuffledData);
       }
       
     })();
   }, [topic, user]);
 
-  // ChatGPT feedback integration
+  // Simple feedback without ChatGPT (to avoid API key issues)
   const getChatGPTFeedback = async (question, userAnswer, correctAnswer, startingPoint) => {
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          temperature: 0.2,
-          messages: [
-            { role: 'system', content: 'You teach Grade 1 maths. Be brief, warm, and concrete.' },
-            { 
-              role: 'user', 
-              content: `You are a friendly Grade 1 maths tutor.
-Topic: Ordinal numbers up to fifth (1st..5th). Start point: ${startingPoint}.
-
-QUESTION: ${question}
-CHILD'S ANSWER: ${userAnswer}
-CORRECT ANSWER: ${correctAnswer}
-
-Rules:
-- If correct: say one short praise line + restate why it's correct (e.g., "From the LEFT, the dog is 1st.")
-- If wrong: one gentle hint that teaches LEFT vs RIGHT or ordinal endings ("2nd uses 'nd'").
-- Keep to 1-2 short sentences. Age-appropriate language.`
-            }
-          ]
-        })
-      });
-
-      const data = await response.json();
-      return data.choices?.[0]?.message?.content?.trim() ?? "Great job working on ordinal numbers!";
-    } catch (error) {
-      console.error('ChatGPT feedback error:', error);
-      return "Great job working on ordinal numbers!";
+    // Generate simple feedback based on correctness
+    const isCorrect = userAnswer === correctAnswer || 
+                     (Array.isArray(correctAnswer) && correctAnswer.includes(userAnswer));
+    
+    if (isCorrect) {
+      const praises = [
+        `Great job! From the ${startingPoint.toUpperCase()}, that's correct!`,
+        `Perfect! You found the right position counting from the ${startingPoint}!`,
+        `Excellent work with ordinal numbers!`,
+        `Well done! You understand ${startingPoint} and right positions!`
+      ];
+      return praises[Math.floor(Math.random() * praises.length)];
+    } else {
+      const hints = [
+        `Remember to count from the ${startingPoint.toUpperCase()}. Try again!`,
+        `Think about which direction we're counting from - ${startingPoint}!`,
+        `Count carefully from the ${startingPoint}: 1st, 2nd, 3rd, 4th, 5th!`,
+        `Look at the ${startingPoint} side and count the positions!`
+      ];
+      return hints[Math.floor(Math.random() * hints.length)];
     }
   };
 
@@ -303,14 +303,27 @@ Rules:
   // Move to next question
   const nextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
       resetQuestionState();
       
       // Set starting point for next question
-      const nextQ = questions[currentQuestionIndex + 1];
+      const nextQ = questions[nextIndex];
       if (nextQ) {
         setStartingPoint(nextQ.starting_point || 'left');
         setQuestionStartTime(Date.now());
+        
+        // Pre-shuffle data for matching questions
+        if (nextQ.question_type === 'match_words_symbols') {
+          const shuffledWords = [...nextQ.pairs].sort(() => Math.random() - 0.5);
+          const shuffledSymbols = [...nextQ.pairs].sort(() => Math.random() - 0.5);
+          setShuffledQuestionData({
+            [nextIndex]: {
+              shuffledWords,
+              shuffledSymbols
+            }
+          });
+        }
       }
     } else {
       finishQuiz();
@@ -336,69 +349,72 @@ Rules:
   // Finish quiz and save results
   const finishQuiz = async () => {
     const accuracy = (score / questions.length) * 100;
-    const sessionData = {
-      student_id: user.id,
-      topic_id: topic.id,
-      session_date: new Date().toISOString(),
-      difficulty_level: difficulty,
-      questions_attempted: questions.length,
-      correct_answers: score,
-      accuracy_percentage: accuracy,
-      time_spent: Math.round((Date.now() - questionStartTime) / 1000),
-      ai_feedback: aiFeedback,
-      question_details: JSON.stringify(questions.map(q => ({ id: q.id, type: q.question_type })))
-    };
-
-    // Determine next difficulty
+    
+    // Determine next difficulty based on accuracy
     let nextDifficulty = difficulty;
     if (accuracy >= 80 && difficulty === 'easy') nextDifficulty = 'medium';
     else if (accuracy >= 80 && difficulty === 'medium') nextDifficulty = 'hard';
     else if (accuracy < 60 && difficulty === 'medium') nextDifficulty = 'easy';
     else if (accuracy < 60 && difficulty === 'hard') nextDifficulty = 'medium';
 
-    // Save session
+    // Save comprehensive progress data to database
     try {
+      // 1. Update/Insert StudentTopicStats (overall progress) using upsert
+      const statsData = {
+        student_id: user.id,
+        topic_id: topic.id,
+        total_attempts: 1, // Will be incremented by database trigger
+        correct_answers: score,
+        total_questions: questions.length,
+        current_difficulty: nextDifficulty, // Next session difficulty
+        last_accuracy: accuracy,
+        last_attempted: new Date().toISOString(),
+        ai_performance: accuracy,
+        best_streak: score,
+        progress_data: JSON.stringify({
+          recentAccuracies: [accuracy], // Array to track trend
+          difficultyHistory: { current: difficulty, next: nextDifficulty },
+          learningInsights: [`Completed ordinal numbers at ${difficulty} level with ${accuracy.toFixed(1)}% accuracy`]
+        })
+      };
+      
+      await supabase.from('StudentTopicStats').upsert(statsData, { onConflict: 'student_id,topic_id' });
+      
+      // 2. Insert QuizSession (individual session record for detailed tracking)
+      const sessionData = {
+        student_id: user.id,
+        topic_id: topic.id,
+        session_date: new Date().toISOString(),
+        difficulty_level: difficulty,
+        questions_attempted: questions.length,
+        correct_answers: score,
+        accuracy_percentage: accuracy,
+        time_spent: Math.round((Date.now() - questionStartTime) / 1000) || 0,
+        next_difficulty: nextDifficulty,
+        difficulty_changed: difficulty !== nextDifficulty,
+        ai_feedback: JSON.stringify({
+          encouragement: aiFeedback || "Great work on ordinal numbers!",
+          suggestions: [`Continue practicing ${nextDifficulty} level questions`],
+          progressionReason: difficulty !== nextDifficulty ? 
+            `Performance ${accuracy >= 80 ? 'excellent' : 'needs improvement'} - ${accuracy >= 80 ? 'advancing' : 'staying at'} difficulty` : 
+            'Maintaining current difficulty level'
+        }),
+        question_details: JSON.stringify({
+          questionTypes: questions.map(q => q.question_type),
+          responses: questions.map((q, idx) => ({
+            questionId: q.id || idx,
+            questionType: q.question_type,
+            startingPoint: q.starting_point || 'left'
+          }))
+        })
+      };
+      
       await supabase.from('QuizSessions').insert(sessionData);
       
-      // Update student stats
-      const { data: existingStats } = await supabase
-        .from('StudentTopicStats')
-        .select('*')
-        .eq('student_id', user.id)
-        .eq('topic_id', topic.id)
-        .single();
-
-      if (existingStats) {
-        await supabase
-          .from('StudentTopicStats')
-          .update({
-            total_attempts: existingStats.total_attempts + 1,
-            correct_answers: existingStats.correct_answers + score,
-            total_questions: existingStats.total_questions + questions.length,
-            current_difficulty: nextDifficulty,
-            last_accuracy: accuracy,
-            last_attempted: new Date().toISOString(),
-            best_streak: Math.max(existingStats.best_streak || 0, score)
-          })
-          .eq('student_id', user.id)
-          .eq('topic_id', topic.id);
-      } else {
-        await supabase
-          .from('StudentTopicStats')
-          .insert({
-            student_id: user.id,
-            topic_id: topic.id,
-            total_attempts: 1,
-            correct_answers: score,
-            total_questions: questions.length,
-            current_difficulty: nextDifficulty,
-            last_accuracy: accuracy,
-            last_attempted: new Date().toISOString(),
-            best_streak: score
-          });
-      }
+      console.log(`📊 Ordinal Numbers Results saved - Score: ${score}/${questions.length}, Accuracy: ${accuracy.toFixed(1)}%`);
+      
     } catch (error) {
-      console.error('Error saving quiz results:', error);
+      console.error('Error saving ordinal numbers results:', error);
     }
 
     setShowResult(true);
@@ -599,42 +615,52 @@ Rules:
     </div>
   );
 
-  const renderMatchingQuestion = (question) => (
-    <div className="ordinal-matching">
-      <div className="matching-pairs">
-        <div className="words-column">
-          <h4>Words</h4>
-          {question.pairs.map((pair, index) => (
-            <div
-              key={index}
-              className="match-item word-item"
-              draggable
-              onDragStart={(e) => handleDragStart(e, pair.word)}
-            >
-              {pair.word}
-            </div>
-          ))}
-        </div>
-        
-        <div className="symbols-column">
-          <h4>Symbols</h4>
-          {question.pairs.map((pair, index) => (
-            <div
-              key={index}
-              className="match-target"
-              onDrop={(e) => handleMatchDrop(e, pair.symbol)}
-              onDragOver={handleDragOver}
-            >
-              <div className="symbol">{pair.symbol}</div>
-              <div className="matched-word">
-                {matchedPairs[pair.symbol] || 'Drop word here'}
+  const renderMatchingQuestion = (question) => {
+    // Use pre-shuffled data to prevent continuous shuffling
+    const questionData = shuffledQuestionData[currentQuestionIndex];
+    const shuffledWords = questionData?.shuffledWords || question.pairs;
+    const shuffledSymbols = questionData?.shuffledSymbols || question.pairs;
+    
+    return (
+      <div className="ordinal-matching">
+        <div className="matching-pairs">
+          <div className="words-column">
+            <h4>Words</h4>
+            {shuffledWords.map((pair, index) => (
+              <div
+                key={`word-${pair.word}-${index}`}
+                className="match-item word-item"
+                draggable
+                onDragStart={(e) => handleDragStart(e, pair.word)}
+              >
+                {pair.word}
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+          
+          <div className="symbols-column">
+            <h4>Symbols</h4>
+            {shuffledSymbols.map((pair, index) => (
+              <div
+                key={`symbol-${pair.symbol}-${index}`}
+                className="match-target"
+                onDrop={(e) => handleMatchDrop(e, pair.symbol)}
+                onDragOver={handleDragOver}
+              >
+                <div className="symbol-display">
+                  <div className="symbol-text">{pair.symbol}</div>
+                  <div className="arrow">↔</div>
+                  <div className="matched-word">
+                    {matchedPairs[pair.symbol] || 'Drop word here'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderStartPointChallenge = (question) => (
     <div className="ordinal-start-point-challenge">

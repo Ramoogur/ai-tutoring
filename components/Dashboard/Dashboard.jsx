@@ -106,6 +106,17 @@ const Dashboard = ({ user, startQuiz }) => {
           </div>
         ))}
       </div>
+
+      <div className="games-section">
+        <h2>Games</h2>
+        <div className="topic-grid">
+          <div className="topic-card" onClick={() => handleStartQuiz({ name: 'Abacus', description: 'Interactive counting with abacus' })}>
+            <div className="topic-icon">🧮</div>
+            <h3>Abacus</h3>
+            <p>Interactive counting with abacus</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

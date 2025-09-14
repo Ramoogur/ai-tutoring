@@ -7,6 +7,8 @@ import Addition from './Addition/Addition';
 import Measurement from './Measurement/Measurement';
 import OrdinalNumbers from './OrdinalNumbers/OrdinalNumbers';
 import Patterns from './Patterns/Patterns';
+import Money from './Money/Money';
+import Abacus from './Abacus/Abacus';
 import { aiController } from '../../utils/aiController';
 import { aiTutor } from '../../utils/aiTutor';
 
@@ -32,6 +34,12 @@ const Quiz = ({ topic, user, navigateTo }) => {
   
   // Check if this is a patterns topic
   const isPatterns = topic && (topic.name.toLowerCase().includes('pattern') || topic.name.toLowerCase().includes('sequence') || topic.name.toLowerCase().includes('repeat'));
+  
+  // Check if this is a money topic
+  const isMoney = topic && (topic.name.toLowerCase().includes('money') || topic.name.toLowerCase().includes('coin') || topic.name.toLowerCase().includes('rupee') || topic.name.toLowerCase().includes('cent'));
+  
+  // Check if this is an abacus game
+  const isAbacus = topic && topic.name.toLowerCase().includes('abacus');
   
   // If it's shapes and colors, use the specialized component
   if (isShapesColors) {
@@ -66,6 +74,16 @@ const Quiz = ({ topic, user, navigateTo }) => {
   // If it's patterns, use the Patterns component
   if (isPatterns) {
     return <Patterns topic={topic} user={user} navigateTo={navigateTo} />;
+  }
+  
+  // If it's money, use the Money component
+  if (isMoney) {
+    return <Money topic={topic} user={user} navigateTo={navigateTo} />;
+  }
+  
+  // If it's abacus, use the Abacus component
+  if (isAbacus) {
+    return <Abacus topic={topic} user={user} navigateTo={navigateTo} />;
   }
   const [translated, setTranslated] = useState(null);
   const [transLoading, setTransLoading] = useState(false);

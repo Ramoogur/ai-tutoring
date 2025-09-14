@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
 import { timeQuestions, timeColors, timeAssets } from '../../../data/timeQuestions';
+import { aiController } from '../../../utils/aiController';
+import { aiTutor } from '../../../utils/aiTutor';
 import './Time.css';
 
 const Time = ({ topic, user, navigateTo }) => {
@@ -20,52 +22,117 @@ const Time = ({ topic, user, navigateTo }) => {
   const [selectedColor, setSelectedColor] = useState(null);
   const [litTargets, setLitTargets] = useState(new Set());
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [aiStatus, setAiStatus] = useState(null);
+  const [questionStartTime, setQuestionStartTime] = useState(null);
+  const [aiFeedback, setAiFeedback] = useState(null);
+  const [sessionData, setSessionData] = useState({ correct: 0, total: 0 });
 
-  // Get difficulty from user performance
-  const getDifficultyFromAccuracy = (acc) => {
-    if (acc >= 0.8) return 'hard';
-    if (acc >= 0.5) return 'medium';
-    return 'easy';
+  // Normalize AI difficulty names to quiz difficulty names
+  const normalizeDifficultyName = (aiDifficulty) => {
+    const difficultyMap = {
+      'Beginner': 'easy',
+      'Easy': 'easy', 
+      'Medium': 'medium',
+      'Hard': 'hard',
+      'Expert': 'hard'
+    };
+    return difficultyMap[aiDifficulty] || aiDifficulty.toLowerCase();
   };
 
-  const fetchDifficulty = async (studentId, topicId) => {
-    const { data, error } = await supabase
-      .from('StudentTopicStats')
-      .select('total_attempts, correct_answers')
-      .eq('student_id', studentId)
-      .eq('topic_id', topicId)
-      .maybeSingle();
-    if (error || !data || data.total_attempts === 0) return 'easy';
-    const accuracy = data.correct_answers / data.total_attempts;
-    return getDifficultyFromAccuracy(accuracy);
-  };
-
-  // Initialize questions based on difficulty
+  // AI-Enhanced initialization with adaptive difficulty
   useEffect(() => {
     (async () => {
       if (!topic || !user) return;
       
-      const dbDifficulty = await fetchDifficulty(user.id, topic.id);
-      setDifficulty(dbDifficulty);
+      // Reset quiz state
+      setCurrentQuestionIndex(0);
+      setScore(0);
+      setShowResult(false);
+      setFeedback(null);
+      setAiFeedback(null);
+      setMatchedPairs(new Set());
+      setDroppedShapes({});
+      setSequencedItems([]);
+      setColoredScenes(new Set());
+      setSelectedColor(null);
+      setLitTargets(new Set());
+      setSessionData({ correct: 0, total: 0 });
       
-      let selectedQuestions = [];
-      
-      switch (dbDifficulty) {
-        case 'easy':
-          selectedQuestions = timeQuestions.easy.slice(0, 5);
-          break;
-        case 'medium':
-          selectedQuestions = [...timeQuestions.easy.slice(0, 2), ...timeQuestions.medium.slice(0, 3)];
-          break;
-        case 'hard':
-          selectedQuestions = [...timeQuestions.medium.slice(0, 2), ...timeQuestions.hard.slice(0, 3)];
-          break;
-        default:
-          selectedQuestions = timeQuestions.easy.slice(0, 5);
+      // Load current difficulty from database
+      let savedDifficulty = 'easy'; // Default
+      try {
+        // Convert user.id to UUID string if it's an integer
+        const studentId = typeof user.id === 'number' ? user.id.toString() : user.id;
+        console.log(`🔍 Looking for student_id: ${studentId} (type: ${typeof studentId}), topic_id: ${topic.id}`);
+        
+        const { data: studentStats } = await supabase
+          .from('StudentTopicStats')
+          .select('current_difficulty')
+          .eq('student_id', studentId)
+          .eq('topic_id', topic.id)
+          .single();
+        
+        if (studentStats?.current_difficulty) {
+          savedDifficulty = studentStats.current_difficulty;
+          console.log(`💾 Loaded saved difficulty: ${savedDifficulty}`);
+        }
+      } catch (error) {
+        console.log('🆆 No previous progress found, starting at Easy level');
       }
       
-      const shuffledQuestions = selectedQuestions.sort(() => Math.random() - 0.5);
-      setQuestions(shuffledQuestions);
+      // Initialize AI system for Time with correct difficulty
+      console.log(`🤖 Initializing AI Tutor for Time at ${savedDifficulty} difficulty`);
+      aiController.startQuizSession('time');
+      
+      // Set AI to the correct difficulty level from database BEFORE starting
+      aiTutor.setDifficultyForNextSession(savedDifficulty);
+      setAiStatus(aiController.getAIStatus());
+      
+      // Use the loaded difficulty level and update state
+      let difficultyLevel = savedDifficulty;
+      setDifficulty(savedDifficulty); // Update React state for UI display
+      console.log(`🎯 Starting quiz at difficulty: ${difficultyLevel}`);
+      
+      // Get all available questions across difficulties for AI selection
+      const allQuestions = [
+        ...(timeQuestions.easy || []).map(q => ({ ...q, difficulty: 'easy' })),
+        ...(timeQuestions.medium || []).map(q => ({ ...q, difficulty: 'medium' })),
+        ...(timeQuestions.hard || []).map(q => ({ ...q, difficulty: 'hard' }))
+      ];
+      
+      // Let AI select optimal questions based on performance
+      let selectedQuestions = [];
+      if (allQuestions.length > 0) {
+        selectedQuestions = aiController.prepareQuestions(allQuestions, 5);
+        console.log(`🧠 AI selected ${selectedQuestions.length} personalized questions`);
+      } else {
+        console.warn('No questions available for AI selection');
+        // Fallback to traditional difficulty-based selection
+        switch (difficultyLevel) {
+          case 'easy':
+            selectedQuestions = timeQuestions.easy.slice(0, 5);
+            break;
+          case 'medium':
+            selectedQuestions = [...timeQuestions.easy.slice(0, 2), ...timeQuestions.medium.slice(0, 3)];
+            break;
+          case 'hard':
+            selectedQuestions = [...timeQuestions.medium.slice(0, 2), ...timeQuestions.hard.slice(0, 3)];
+            break;
+          default:
+            selectedQuestions = timeQuestions.easy.slice(0, 5);
+        }
+        // Shuffle questions for variety
+        selectedQuestions = selectedQuestions.sort(() => Math.random() - 0.5);
+      }
+      
+      setQuestions(selectedQuestions);
+      
+      // Start tracking the first question with AI
+      if (selectedQuestions.length > 0) {
+        const questionTrackingData = aiController.startQuestion(selectedQuestions[0]);
+        setQuestionStartTime(questionTrackingData.startTime);
+      }
+      
     })();
   }, [topic, user]);
 
@@ -177,7 +244,14 @@ const Time = ({ topic, user, navigateTo }) => {
         isCorrect = selectedOption === currentQuestion.correctAnswer;
         break;
       case 'matching':
-        isCorrect = matchedPairs.size === currentQuestion.items.length;
+        // Count correct matches in dropped shapes
+        let correctMatches = 0;
+        Object.entries(droppedShapes).forEach(([target, item]) => {
+          if (item.timeOfDay === target) {
+            correctMatches++;
+          }
+        });
+        isCorrect = correctMatches === currentQuestion.items.length;
         break;
       case 'fill_blank':
         isCorrect = selectedOption === currentQuestion.correctAnswer;
@@ -209,6 +283,12 @@ const Time = ({ topic, user, navigateTo }) => {
         isCorrect = false;
     }
 
+    // Update session data for difficulty progression
+    setSessionData(prev => ({
+      correct: prev.correct + (isCorrect ? 1 : 0),
+      total: prev.total + 1
+    }));
+
     if (isCorrect) {
       setScore(score + 1);
       feedbackMessage = 'Great job! That\'s correct! 🌟';
@@ -218,15 +298,36 @@ const Time = ({ topic, user, navigateTo }) => {
 
     setFeedback({ isCorrect, message: feedbackMessage });
 
-    // Save to database
+    // AI Analysis with performance tracking
+    const responseTime = questionStartTime ? Date.now() - questionStartTime : 0;
+    const analysisResult = aiController.analyzeResponse({
+      question: currentQuestion,
+      userAnswer: selectedOption || droppedShapes || coloredScenes || sequencedItems,
+      isCorrect,
+      responseTime,
+      difficulty: currentQuestion.difficulty || difficulty
+    });
+
+    // Generate AI feedback
+    const aiFeedbackResult = await aiController.generateFeedback({
+      question: currentQuestion,
+      isCorrect,
+      analysisResult,
+      studentProfile: aiTutor.getStudentProfile()
+    });
+
+    setAiFeedback(aiFeedbackResult);
+    setAiStatus(aiController.getAIStatus());
+
+    // Save individual question result to database (optional - for detailed tracking)
     if (user && topic) {
-      await supabase.from('QuizResults').insert({
-        user_id: user.id,
-        topic_id: topic.id,
-        question_id: currentQuestion.id,
-        is_correct: isCorrect,
-        difficulty: difficulty
-      });
+      try {
+        // Note: We're not saving individual questions to avoid 404 errors
+        // All data will be saved comprehensively in finishQuiz()
+        console.log(`✅ Question ${currentQuestionIndex + 1} completed: ${isCorrect ? 'Correct' : 'Incorrect'}`);
+      } catch (error) {
+        console.warn('Individual question save skipped:', error);
+      }
     }
 
     setTimeout(() => {
@@ -235,6 +336,11 @@ const Time = ({ topic, user, navigateTo }) => {
         // Next question
         setCurrentQuestionIndex(currentQuestionIndex + 1);
         resetQuestionState();
+        
+        // Start tracking next question
+        const nextQuestion = questions[currentQuestionIndex + 1];
+        const questionTrackingData = aiController.startQuestion(nextQuestion);
+        setQuestionStartTime(questionTrackingData.startTime);
       } else {
         finishQuiz();
       }
@@ -244,6 +350,7 @@ const Time = ({ topic, user, navigateTo }) => {
   const resetQuestionState = () => {
     setSelectedOption(null);
     setFeedback(null);
+    setAiFeedback(null);
     setMatchedPairs(new Set());
     setDroppedShapes({});
     setSequencedItems([]);
@@ -253,7 +360,145 @@ const Time = ({ topic, user, navigateTo }) => {
     setDraggedItem(null);
   };
 
-  const finishQuiz = () => {
+  const finishQuiz = async () => {
+    // Complete the quiz session with AI analysis
+    const sessionSummary = await aiController.completeQuizSession({
+      totalQuestions: questions.length,
+      correctAnswers: score,
+      topic: 'time',
+      difficulty: difficulty,
+      sessionData: sessionData
+    });
+
+    console.log('📊 Session Summary:', sessionSummary);
+
+    // Calculate session accuracy for difficulty progression
+    const sessionAccuracy = sessionData.total > 0 ? sessionData.correct / sessionData.total : 0;
+    console.log(`📈 Session accuracy: ${(sessionAccuracy * 100).toFixed(1)}%`);
+
+    // Determine next difficulty based on session performance
+    let nextDifficulty = difficulty;
+    let difficultyChanged = false;
+    let progressionReason = '';
+
+    if (sessionAccuracy >= 0.8) {
+      // 80%+ accuracy - move up or stay at hard
+      if (difficulty === 'easy') {
+        nextDifficulty = 'medium';
+        difficultyChanged = true;
+        progressionReason = 'Excellent work! Moving to Medium level.';
+      } else if (difficulty === 'medium') {
+        nextDifficulty = 'hard';
+        difficultyChanged = true;
+        progressionReason = 'Outstanding performance! Moving to Hard level.';
+      } else {
+        progressionReason = 'Perfect! Staying at Hard level with new challenges.';
+      }
+    } else if (sessionAccuracy >= 0.6) {
+      // 60-79% accuracy - stay at current level
+      progressionReason = 'Good progress! Staying at current level to build confidence.';
+    } else {
+      // <60% accuracy - move down
+      if (difficulty === 'hard') {
+        nextDifficulty = 'medium';
+        difficultyChanged = true;
+        progressionReason = 'Let\'s practice more at Medium level.';
+      } else if (difficulty === 'medium') {
+        nextDifficulty = 'easy';
+        difficultyChanged = true;
+        progressionReason = 'Let\'s build stronger foundations at Easy level.';
+      } else {
+        progressionReason = 'Keep practicing! You\'re building important skills.';
+      }
+    }
+
+    console.log(`🎯 Difficulty progression: ${difficulty} → ${nextDifficulty} (${progressionReason})`);
+
+    // Save comprehensive session data to database
+    if (user && topic) {
+      try {
+        // Convert user.id to UUID string if it's an integer
+        const studentId = typeof user.id === 'number' ? user.id.toString() : user.id;
+        console.log(`💾 Saving progress for student_id: ${studentId}, topic_id: ${topic.id}`);
+        
+        // Save to StudentTopicStats (overall progress)
+        const { error: statsError } = await supabase
+          .from('StudentTopicStats')
+          .upsert({
+            student_id: studentId,
+            topic_id: topic.id,
+            current_difficulty: nextDifficulty,
+            last_accuracy: sessionAccuracy,
+            total_attempts: sessionData.total,
+            correct_answers: sessionData.correct,
+            last_attempted: new Date().toISOString(),
+            progress_data: {
+              session_accuracy: sessionAccuracy,
+              difficulty_progression: {
+                from: difficulty,
+                to: nextDifficulty,
+                reason: progressionReason,
+                changed: difficultyChanged
+              },
+              ai_insights: sessionSummary.insights || []
+            }
+          }, {
+            onConflict: 'student_id,topic_id'
+          });
+
+        if (statsError) {
+          console.error('Error saving student stats:', statsError);
+        } else {
+          console.log('✅ Student progress saved successfully');
+        }
+
+        // Save to QuizSessions (detailed session record)
+        const { error: sessionError } = await supabase
+          .from('QuizSessions')
+          .insert({
+            student_id: studentId,
+            topic_id: topic.id,
+            session_date: new Date().toISOString(),
+            difficulty_level: difficulty,
+            questions_attempted: sessionData.total,
+            correct_answers: sessionData.correct,
+            accuracy_percentage: sessionAccuracy * 100,
+            time_spent: Math.floor((Date.now() - (questionStartTime || Date.now())) / 1000),
+            next_difficulty: nextDifficulty,
+            difficulty_changed: difficultyChanged,
+            ai_feedback: sessionSummary,
+            question_details: questions.map((q, index) => ({
+              question_id: q.id,
+              question_type: q.type,
+              difficulty: q.difficulty || difficulty,
+              correct: index < score // Simple approximation
+            }))
+          });
+
+        if (sessionError) {
+          console.error('Error saving session:', sessionError);
+        } else {
+          console.log('✅ Session details saved successfully');
+        }
+
+      } catch (error) {
+        console.error('Database save error:', error);
+      }
+    }
+
+    // Store progression info for results display
+    setAiFeedback(prev => ({
+      ...prev,
+      difficultyProgression: {
+        currentLevel: difficulty,
+        nextLevel: nextDifficulty,
+        sessionAccuracy: sessionAccuracy,
+        reason: progressionReason,
+        changed: difficultyChanged
+      },
+      sessionSummary
+    }));
+
     setShowResult(true);
   };
 
@@ -302,6 +547,63 @@ const Time = ({ topic, user, navigateTo }) => {
             <div className={`results-encouragement ${scoreClass}`}>
               {encouragement}
             </div>
+            
+            {/* Difficulty Progression Display */}
+            {aiFeedback?.difficultyProgression && (
+              <div className="difficulty-progression-section">
+                <h3>📈 Your Progress</h3>
+                <div className="progression-display">
+                  <div className="current-level">
+                    <span className="level-label">Current Level:</span>
+                    <span className={`level-badge level-${aiFeedback.difficultyProgression.currentLevel}`}>
+                      {aiFeedback.difficultyProgression.currentLevel.toUpperCase()}
+                    </span>
+                  </div>
+                  
+                  <div className="accuracy-display">
+                    <span className="accuracy-label">Session Accuracy:</span>
+                    <span className="accuracy-value">
+                      {Math.round(aiFeedback.difficultyProgression.sessionAccuracy * 100)}%
+                    </span>
+                  </div>
+                  
+                  <div className="progression-arrow">
+                    {aiFeedback.difficultyProgression.changed ? '⬆️' : '➡️'}
+                  </div>
+                  
+                  <div className="next-level">
+                    <span className="level-label">Next Level:</span>
+                    <span className={`level-badge level-${aiFeedback.difficultyProgression.nextLevel}`}>
+                      {aiFeedback.difficultyProgression.nextLevel.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="progression-reason">
+                  <p>{aiFeedback.difficultyProgression.reason}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* AI Feedback Display */}
+            {aiFeedback?.sessionSummary && (
+              <div className="ai-session-summary">
+                <h3>🧠 AI Tutor Insights</h3>
+                {aiFeedback.sessionSummary.insights && aiFeedback.sessionSummary.insights.length > 0 && (
+                  <div className="ai-insights">
+                    {aiFeedback.sessionSummary.insights.map((insight, idx) => (
+                      <p key={idx} className="insight-item">💡 {insight}</p>
+                    ))}
+                  </div>
+                )}
+                {aiFeedback.sessionSummary.recommendations && (
+                  <div className="ai-recommendations">
+                    <p className="recommendation">🎯 {aiFeedback.sessionSummary.recommendations}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="result-actions">
               <button className="btn btn-primary" onClick={() => navigateTo('topics')}>
                 Back to Topics
@@ -583,6 +885,33 @@ const Time = ({ topic, user, navigateTo }) => {
             {feedback.message}
           </div>
         )}
+        
+        {aiFeedback && (
+          <div className="ai-feedback">
+            <div className="ai-feedback-header">
+              <span className="ai-icon">🧠</span>
+              <strong>AI Tutor Feedback</strong>
+            </div>
+            <div className="ai-feedback-content">
+              {aiFeedback.aiInsight && (
+                <p className="ai-insight">{aiFeedback.aiInsight}</p>
+              )}
+              {aiFeedback.suggestion && (
+                <p className="ai-suggestion">💡 <em>{aiFeedback.suggestion}</em></p>
+              )}
+              {aiFeedback.encouragement && (
+                <p className="ai-encouragement">{aiFeedback.encouragement}</p>
+              )}
+              {aiFeedback.insights && aiFeedback.insights.length > 0 && (
+                <div className="ai-insights">
+                  {aiFeedback.insights.map((insight, idx) => (
+                    <p key={idx} className="insight-item">{insight}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="quiz-actions">
@@ -591,7 +920,7 @@ const Time = ({ topic, user, navigateTo }) => {
           onClick={checkAnswer} 
           disabled={isChecking || (!selectedOption && matchedPairs.size === 0 && coloredScenes.size === 0 && litTargets.size === 0)}
         >
-          {isChecking ? 'Checking...' : 'Check Answer'}
+          {isChecking ? 'AI Analyzing...' : 'Check Answer'}
         </button>
       </div>
     </div>

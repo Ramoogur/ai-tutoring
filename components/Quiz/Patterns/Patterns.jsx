@@ -18,8 +18,9 @@ const Patterns = ({ topic, user, navigateTo }) => {
   const [droppedItems, setDroppedItems] = useState([]);
   const [createdPattern, setCreatedPattern] = useState([]);
   const [textInput, setTextInput] = useState('');
-  const [isTracing, setIsTracing] = useState(false);
   const [tracedShapes, setTracedShapes] = useState([]);
+  const [isTracing, setIsTracing] = useState(false);
+  const [traceData, setTraceData] = useState({});
   const [questionStartTime, setQuestionStartTime] = useState(null);
   
   const canvasRef = useRef(null);
@@ -82,6 +83,100 @@ const Patterns = ({ topic, user, navigateTo }) => {
       console.log(`🧩 Patterns quiz starting at ${difficultyLevel} difficulty with ${selectedQuestions.length} questions`);
     })();
   }, [topic, user]);
+
+  // Generate picture icons for weather/nature patterns
+  const generatePictureIcon = (type, color, size = 60) => {
+    const iconStyle = {
+      fontSize: size,
+      color: color,
+      display: 'inline-block',
+      textAlign: 'center'
+    };
+
+    const icons = {
+      'sun': '☀️',
+      'cloud': '☁️',
+      'star': '⭐',
+      'moon': '🌙',
+      'rain': '🌧️',
+      'snow': '❄️'
+    };
+
+    return (
+      <span style={iconStyle}>
+        {icons[type] || '❓'}
+      </span>
+    );
+  };
+
+  // Generate tracing outline for shapes (dotted/dashed)
+  const generateTracingOutline = (shape, color, size = 100) => {
+    const center = size / 2;
+    let shapeElement = '';
+
+    switch (shape) {
+      case 'circle':
+        shapeElement = `<circle cx="${center}" cy="${center}" r="${size * 0.4}" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="8,4" />`;
+        break;
+      case 'square':
+        const squareSize = size * 0.8;
+        const squareStart = (size - squareSize) / 2;
+        shapeElement = `<rect x="${squareStart}" y="${squareStart}" width="${squareSize}" height="${squareSize}" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="8,4" />`;
+        break;
+      case 'triangle':
+        const triangleHeight = size * 0.7;
+        const triangleBase = size * 0.8;
+        const startX = (size - triangleBase) / 2;
+        const startY = (size - triangleHeight) / 2;
+        shapeElement = `<polygon points="${center},${startY} ${startX + triangleBase},${startY + triangleHeight} ${startX},${startY + triangleHeight}" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="8,4" />`;
+        break;
+      default:
+        shapeElement = `<circle cx="${center}" cy="${center}" r="${size * 0.4}" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="8,4" />`;
+    }
+
+    return (
+      <svg width={size} height={size} className="tracing-outline">
+        <defs>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        <g dangerouslySetInnerHTML={{ __html: shapeElement }} filter="url(#glow)" />
+      </svg>
+    );
+  };
+
+  // Generate SVG string for canvas background
+  const generateTracingOutlineSVG = (shape, color, size = 100) => {
+    const center = size / 2;
+    let shapeElement = '';
+
+    switch (shape) {
+      case 'circle':
+        shapeElement = `<circle cx="${center}" cy="${center}" r="${size * 0.4}" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="8,4" />`;
+        break;
+      case 'square':
+        const squareSize = size * 0.8;
+        const squareStart = (size - squareSize) / 2;
+        shapeElement = `<rect x="${squareStart}" y="${squareStart}" width="${squareSize}" height="${squareSize}" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="8,4" />`;
+        break;
+      case 'triangle':
+        const triangleHeight = size * 0.7;
+        const triangleBase = size * 0.8;
+        const startX = (size - triangleBase) / 2;
+        const startY = (size - triangleHeight) / 2;
+        shapeElement = `<polygon points="${center},${startY} ${startX + triangleBase},${startY + triangleHeight} ${startX},${startY + triangleHeight}" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="8,4" />`;
+        break;
+      default:
+        shapeElement = `<circle cx="${center}" cy="${center}" r="${size * 0.4}" fill="none" stroke="${color}" stroke-width="3" stroke-dasharray="8,4" />`;
+    }
+
+    return `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">${shapeElement}</svg>`;
+  };
 
   // Generate SVG for shapes
   const generateShapeSVG = (shape, color, size = 100, className = '') => {
@@ -148,10 +243,20 @@ const Patterns = ({ topic, user, navigateTo }) => {
     e.dataTransfer.setData('text/plain', JSON.stringify(item));
   };
 
-  const handleDrop = (e, target) => {
+  const handleDrop = (e, dropIndex) => {
     e.preventDefault();
     if (draggedItem) {
-      setDroppedItems(prev => [...prev, draggedItem]);
+      if (typeof dropIndex === 'number') {
+        // Handle indexed drop zones for picture patterns
+        setDroppedItems(prev => {
+          const newItems = [...prev];
+          newItems[dropIndex] = draggedItem;
+          return newItems;
+        });
+      } else {
+        // Handle single drop zone for other patterns
+        setDroppedItems(prev => [...prev, draggedItem]);
+      }
       setDraggedItem(null);
     }
   };
@@ -167,28 +272,70 @@ const Patterns = ({ topic, user, navigateTo }) => {
     }
   };
 
-  const removeFromPattern = (index) => {
-    setCreatedPattern(prev => prev.filter((_, i) => i !== index));
-  };
-
-  // Tracing functionality
-  const startTracing = (e) => {
+  // Canvas tracing handlers
+  const startTracing = (e, shapeIndex) => {
     setIsTracing(true);
-    const rect = tracingRef.current.getBoundingClientRect();
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    // Add traced shape
-    setTracedShapes(prev => [...prev, { x, y, timestamp: Date.now() }]);
+    setTraceData(prev => ({
+      ...prev,
+      [shapeIndex]: {
+        points: [{x, y}],
+        isComplete: false
+      }
+    }));
   };
 
-  const continueTracing = (e) => {
+  const continueTracing = (e, shapeIndex) => {
     if (!isTracing) return;
-    const rect = tracingRef.current.getBoundingClientRect();
+    
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    setTracedShapes(prev => [...prev, { x, y, timestamp: Date.now() }]);
+    setTraceData(prev => ({
+      ...prev,
+      [shapeIndex]: {
+        ...prev[shapeIndex],
+        points: [...(prev[shapeIndex]?.points || []), {x, y}]
+      }
+    }));
+    
+    // Draw the trace
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#4caf50';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    
+    const points = traceData[shapeIndex]?.points || [];
+    if (points.length > 1) {
+      const lastPoint = points[points.length - 2];
+      ctx.beginPath();
+      ctx.moveTo(lastPoint.x, lastPoint.y);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    }
+  };
+
+  const endTracing = (shapeIndex) => {
+    setIsTracing(false);
+    
+    // Check if the shape was traced adequately
+    const points = traceData[shapeIndex]?.points || [];
+    if (points.length > 10) { // Minimum points for a valid trace
+      setTracedShapes(prev => [...prev, shapeIndex]);
+      setTraceData(prev => ({
+        ...prev,
+        [shapeIndex]: {
+          ...prev[shapeIndex],
+          isComplete: true
+        }
+      }));
+    }
   };
 
   const stopTracing = () => {
@@ -208,11 +355,11 @@ const Patterns = ({ topic, user, navigateTo }) => {
         break;
       case 'complete-pattern-drag':
         // Check if dropped items match the expected answer
-        const expectedAnswer = currentQuestion.answer;
-        isCorrect = droppedItems.length === expectedAnswer.length &&
+        const expectedDragAnswer = currentQuestion.answer;
+        isCorrect = droppedItems.length === expectedDragAnswer.length &&
           droppedItems.every((item, idx) => 
-            item.shape === expectedAnswer[idx].shape && 
-            item.color === expectedAnswer[idx].color
+            item.shape === expectedDragAnswer[idx].shape && 
+            item.color === expectedDragAnswer[idx].color
           );
         break;
       case 'size-pattern':
@@ -225,17 +372,25 @@ const Patterns = ({ topic, user, navigateTo }) => {
         isCorrect = selectedOption === currentQuestion.correct;
         break;
       case 'complete-pattern-trace':
-        // Check if enough shapes were traced
-        isCorrect = tracedShapes.length >= currentQuestion.toTrace.length * 5;
+        // Check if all required shapes were traced
+        isCorrect = tracedShapes.length >= currentQuestion.toTrace.length;
         break;
       case 'fix-the-mistake':
         isCorrect = selectedOption === currentQuestion.answer_index;
         break;
       case 'mixed-attribute-pattern':
+        // Check if selected option matches the expected answer
+        const expectedAnswer = currentQuestion.answer[0]; // First item in answer array
+        const selectedItem = currentQuestion.options[selectedOption];
+        isCorrect = selectedItem && 
+          selectedItem.shape === expectedAnswer.shape && 
+          selectedItem.color === expectedAnswer.color;
+        break;
       case 'picture-pattern':
         const expectedItems = currentQuestion.answer;
-        isCorrect = droppedItems.length === expectedItems.length &&
-          droppedItems.every((item, idx) => 
+        const validDroppedItems = droppedItems.filter(item => item);
+        isCorrect = validDroppedItems.length === expectedItems.length &&
+          validDroppedItems.every((item, idx) => 
             JSON.stringify(item) === JSON.stringify(expectedItems[idx])
           );
         break;
@@ -295,92 +450,111 @@ const Patterns = ({ topic, user, navigateTo }) => {
     setIsChecking(false);
   };
 
-const finishQuiz = async () => {
-setShowResult(true);
-const accuracy = score / questions.length;
+  const finishQuiz = async () => {
+    setShowResult(true);
+    const accuracy = score / questions.length;
   
-// Complete AI session and get comprehensive feedback (same as ShapesColors)
-let aiSessionSummary = aiController.completeQuizSession();
-console.log(' AI Session Summary:', aiSessionSummary);
-  
-// Save comprehensive progress data to database
-try {
-const sessionAccuracy = (score / questions.length) * 100;
-  
-// Use AI controller's difficulty progression logic
-const nextDifficulty = aiController.calculateNextSessionDifficulty(difficulty, accuracy);
-  
-// Update or insert student topic stats
-const { data: existingStats } = await supabase
-.from('StudentTopicStats')
-.select('*')
-.eq('student_id', user.id)
-.eq('topic_id', topic.id)
-.single();
-  
-if (existingStats) {
-await supabase
-.from('StudentTopicStats')
-.update({
-total_attempts: existingStats.total_attempts + questions.length,
-correct_answers: existingStats.correct_answers + score,
-current_difficulty: nextDifficulty,
-last_session_accuracy: sessionAccuracy,
-updated_at: new Date().toISOString()
-})
-.eq('student_id', user.id)
-.eq('topic_id', topic.id);
-} else {
-await supabase
-.from('StudentTopicStats')
-.insert({
-student_id: user.id,
-topic_id: topic.id,
-total_attempts: questions.length,
-correct_answers: score,
-current_difficulty: nextDifficulty,
-last_session_accuracy: sessionAccuracy,
-created_at: new Date().toISOString(),
-updated_at: new Date().toISOString()
-});
-}
-  
-// Save session data with AI summary
-const sessionData = {
-student_id: user.id,
-topic_id: topic.id,
-session_date: new Date().toISOString(),
-difficulty_level: difficulty,
-questions_attempted: questions.length,
-correct_answers: score,
-accuracy_percentage: sessionAccuracy,
-time_spent: Math.round((Date.now() - questionStartTime) / 1000) || 0,
-next_difficulty: nextDifficulty,
-difficulty_changed: difficulty !== nextDifficulty,
-ai_feedback: JSON.stringify(aiSessionSummary.aiFeedback || {}),
-session_analytics: JSON.stringify({
-difficultyProgression: aiSessionSummary.difficultyProgression,
-performance: aiSessionSummary.performance,
-sessionAccuracy: aiSessionSummary.sessionAccuracy
-}),
-question_details: JSON.stringify({
-questionTypes: questions.map(q => q.type),
-responses: questions.map((q, idx) => ({
-questionId: q.id || idx,
-correct: idx < score,
-questionType: q.type
-}))
-})
-};
-  
-await supabase.from('QuizSessions').insert(sessionData);
-  
-console.log(` Results saved - Score: ${score}/${questions.length}, Accuracy: ${(accuracy*100).toFixed(1)}%, Next: ${nextDifficulty}`);
-  
-} catch (error) {
-console.error('Error saving results:', error);
-}
-};
+    // Complete AI session and get comprehensive feedback (same as ShapesColors)
+    let aiSessionSummary = aiController.completeQuizSession();
+    console.log(' AI Session Summary:', aiSessionSummary);
+      
+    // Save comprehensive progress data to database
+    try {
+      const sessionAccuracy = (score / questions.length) * 100;
+      
+      // Use AI controller's difficulty progression logic
+      const nextDifficulty = aiController.calculateNextSessionDifficulty(difficulty, accuracy);
+      
+      console.log(`🎯 Patterns Quiz Results: Score=${score}/${questions.length}, Accuracy=${sessionAccuracy.toFixed(1)}%, Current=${difficulty}, Next=${nextDifficulty}`);
+      
+      // Update or insert student topic stats
+      const { data: existingStats, error: fetchError } = await supabase
+        .from('StudentTopicStats')
+        .select('*')
+        .eq('student_id', user.id)
+        .eq('topic_id', topic.id)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error fetching existing stats:', fetchError);
+      }
+        
+      if (existingStats) {
+        const { error: updateError } = await supabase
+          .from('StudentTopicStats')
+          .update({
+            total_attempts: existingStats.total_attempts + questions.length,
+            correct_answers: existingStats.correct_answers + score,
+            current_difficulty: nextDifficulty,
+            last_accuracy: sessionAccuracy,
+            last_attempted: new Date().toISOString()
+          })
+          .eq('student_id', user.id)
+          .eq('topic_id', topic.id);
+
+        if (updateError) {
+          console.error('Error updating StudentTopicStats:', updateError);
+        } else {
+          console.log(`✅ Updated StudentTopicStats: next difficulty = ${nextDifficulty}`);
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('StudentTopicStats')
+          .insert({
+            student_id: user.id,
+            topic_id: topic.id,
+            total_attempts: questions.length,
+            correct_answers: score,
+            current_difficulty: nextDifficulty,
+            last_accuracy: sessionAccuracy,
+            created_at: new Date().toISOString(),
+            last_attempted: new Date().toISOString()
+          });
+
+        if (insertError) {
+          console.error('Error inserting StudentTopicStats:', insertError);
+        } else {
+          console.log(`✅ Inserted new StudentTopicStats: difficulty = ${nextDifficulty}`);
+        }
+      }
+        
+      // Save session data with AI summary
+      const sessionData = {
+        student_id: user.id,
+        topic_id: topic.id,
+        session_date: new Date().toISOString(),
+        difficulty_level: difficulty,
+        questions_attempted: questions.length,
+        correct_answers: score,
+        accuracy_percentage: sessionAccuracy,
+        time_spent: Math.round((Date.now() - questionStartTime) / 1000) || 0,
+        next_difficulty: nextDifficulty,
+        difficulty_changed: difficulty !== nextDifficulty,
+        ai_feedback: aiSessionSummary.aiFeedback || {},
+        question_details: {
+          questionTypes: questions.map(q => q.type),
+          responses: questions.map((q, idx) => ({
+            questionId: q.id || idx,
+            correct: idx < score,
+            questionType: q.type
+          }))
+        }
+      };
+        
+      const { error: sessionError } = await supabase.from('QuizSessions').insert(sessionData);
+
+      if (sessionError) {
+        console.error('Error saving QuizSession:', sessionError);
+      } else {
+        console.log('✅ QuizSession saved successfully');
+      }
+        
+      console.log(` Results saved - Score: ${score}/${questions.length}, Accuracy: ${(accuracy*100).toFixed(1)}%, Next: ${nextDifficulty}`);
+        
+    } catch (error) {
+      console.error('Error saving results:', error);
+    }
+  };
 
   if (!questions.length) {
     return (
@@ -687,6 +861,146 @@ console.error('Error saving results:', error);
           </div>
         )}
 
+        {/* Handle complete-pattern-trace question type */}
+        {currentQuestion.type === 'complete-pattern-trace' && (
+          <div className="pattern-tracing">
+            <div className="given-pattern">
+              {currentQuestion.given.map((item, index) => (
+                <div key={index} className="pattern-item">
+                  {generateShapeSVG(item.shape, item.color, 60)}
+                </div>
+              ))}
+            </div>
+            
+            <div className="trace-area">
+              <div className="trace-instruction">
+                <strong>✏️ Trace over the dotted shapes with your mouse!</strong>
+                <div className="trace-hint">Hold down and drag to trace each shape</div>
+              </div>
+              <div className="shapes-to-trace">
+                {currentQuestion.toTrace.map((item, index) => (
+                  <div 
+                    key={index} 
+                    className={`traceable-shape ${tracedShapes.includes(index) ? 'traced' : 'needs-tracing'}`}
+                  >
+                    <canvas
+                      width={120}
+                      height={120}
+                      className="tracing-canvas"
+                      onMouseDown={(e) => startTracing(e, index)}
+                      onMouseMove={(e) => continueTracing(e, index)}
+                      onMouseUp={() => endTracing(index)}
+                      onMouseLeave={() => endTracing(index)}
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(generateTracingOutlineSVG(item.shape, item.color, 120))}")`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'center'
+                      }}
+                    />
+                    {!tracedShapes.includes(index) && (
+                      <div className="trace-indicator">✏️ Trace me!</div>
+                    )}
+                    {tracedShapes.includes(index) && (
+                      <div className="traced-indicator">✅ Traced!</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Handle fix-the-mistake question type */}
+        {currentQuestion.type === 'fix-the-mistake' && (
+          <div className="mistake-finder">
+            <div className="pattern-strip">
+              {currentQuestion.strip.map((item, index) => (
+                <div 
+                  key={index}
+                  className={`pattern-item clickable ${selectedOption === index ? 'selected' : ''}`}
+                  onClick={() => handleOptionSelect(index)}
+                >
+                  {currentQuestion.type === 'fix-the-mistake' && item.size ? 
+                    generateShapeSVG(item.shape, item.color, item.size === 'big' ? 100 : 60) :
+                    generateShapeSVG(item.shape, item.color, 60)
+                  }
+                </div>
+              ))}
+            </div>
+            <div className="instruction">Tap the shape that doesn't fit the pattern</div>
+          </div>
+        )}
+
+        {/* Handle mixed-attribute-pattern question type */}
+        {currentQuestion.type === 'mixed-attribute-pattern' && (
+          <div className="mixed-pattern">
+            <div className="given-pattern">
+              {currentQuestion.given.map((item, index) => (
+                <div key={index} className="pattern-item">
+                  {generateShapeSVG(item.shape, item.color, 60)}
+                </div>
+              ))}
+              <div className="next-placeholder">?</div>
+            </div>
+            
+            <div className="pattern-options">
+              {currentQuestion.options.map((option, index) => (
+                <div
+                  key={index}
+                  className={`pattern-option ${selectedOption === index ? 'selected' : ''}`}
+                  onClick={() => handleOptionSelect(index)}
+                >
+                  {generateShapeSVG(option.shape, option.color, 60)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Handle picture-pattern question type */}
+        {currentQuestion.type === 'picture-pattern' && (
+          <div className="picture-pattern">
+            <div className="given-pattern">
+              {currentQuestion.given.map((item, index) => (
+                <div key={index} className="pattern-item">
+                  {generatePictureIcon(item.type, item.color)}
+                </div>
+              ))}
+              {/* Create separate drop zones for each needed item */}
+              {Array.from({ length: currentQuestion.needs }, (_, index) => (
+                <div 
+                  key={index}
+                  className="drop-zone picture-drop"
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragOver={handleDragOver}
+                >
+                  {droppedItems[index] ? (
+                    <div className="dropped-item">
+                      {generatePictureIcon(droppedItems[index].type, droppedItems[index].color)}
+                    </div>
+                  ) : (
+                    <div className="drop-placeholder">Drop here</div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            <div className="picture-options">
+              {currentQuestion.options.map((option, index) => (
+                <div
+                  key={index}
+                  className="draggable-option picture-option"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, option)}
+                >
+                  {generatePictureIcon(option.type, option.color)}
+                  <span className="picture-label">{option.type}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Add more question type renderers as needed */}
 
         {feedback && (
@@ -707,7 +1021,11 @@ console.error('Error saving results:', error);
               ((currentQuestion.type === 'number-pattern-next' || currentQuestion.type === 'number-pattern-missing' || currentQuestion.type === 'number-pattern-direction') && selectedOption === null) ||
               (currentQuestion.type === 'create-your-own' && createdPattern.length < 6) ||
               (currentQuestion.type === 'describe-rule' && selectedOption === null) ||
-              (currentQuestion.type === 'scene-pattern' && selectedOption === null)
+              (currentQuestion.type === 'scene-pattern' && selectedOption === null) ||
+              (currentQuestion.type === 'complete-pattern-trace' && tracedShapes.length < currentQuestion.toTrace.length) ||
+              (currentQuestion.type === 'fix-the-mistake' && selectedOption === null) ||
+              (currentQuestion.type === 'mixed-attribute-pattern' && selectedOption === null) ||
+              (currentQuestion.type === 'picture-pattern' && droppedItems.filter(item => item).length < currentQuestion.needs)
             }
           >
             {isChecking ? 'Checking...' : 'Check Answer'}
