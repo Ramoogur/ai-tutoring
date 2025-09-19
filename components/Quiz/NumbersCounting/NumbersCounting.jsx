@@ -779,11 +779,15 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           </div>
         ))}
       </div>
+      <div className="input-instruction">
+        <p><strong>Enter your answer below:</strong></p>
+        <p>Count the {question.objects}s above and type the number</p>
+      </div>
       <input
         type="number"
         value={userAnswer}
         onChange={(e) => setUserAnswer(e.target.value)}
-        placeholder="Type the number"
+        placeholder="Enter number here (0-10)"
         className="number-input"
         min="0"
         max="10"
@@ -814,15 +818,21 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
       </div>
       <button onClick={clearDrawing} className="clear-btn">Clear</button>
       {question.type === 'word_problem' && (
-        <input
-          type="number"
-          value={userAnswer}
-          onChange={(e) => setUserAnswer(e.target.value)}
-          placeholder="Type the total number"
-          className="number-input"
-          min="0"
-          max="10"
-        />
+        <div>
+          <div className="input-instruction">
+            <p><strong>Enter your answer:</strong></p>
+            <p>Type the total number after solving the problem</p>
+          </div>
+          <input
+            type="number"
+            value={userAnswer}
+            onChange={(e) => setUserAnswer(e.target.value)}
+            placeholder="Enter total number (0-10)"
+            className="number-input"
+            min="0"
+            max="10"
+          />
+        </div>
       )}
     </div>
   );
@@ -1392,7 +1402,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           disabled={isChecking}
           className="check-answer-btn"
         >
-          {isChecking ? 'Checking...' : 'Check Answer'}
+          {isChecking ? 'Checking...' : 'Next Question'}
         </button>
       </div>
     </div>
@@ -1441,7 +1451,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           disabled={isChecking}
           className="check-answer-btn"
         >
-          {isChecking ? 'Checking...' : 'Check Answer'}
+          {isChecking ? 'Checking...' : 'Next Question'}
         </button>
       </div>
     </div>

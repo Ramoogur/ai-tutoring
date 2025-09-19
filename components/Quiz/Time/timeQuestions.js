@@ -64,13 +64,74 @@ export const timeQuestions = {
         { id: 'night', type: 'moon_scene', targetColor: '#1A237E', label: 'Night Scene' }
       ],
       visual: true
+    },
+
+    // 6. Text Input - Type the time when you wake up
+    {
+      id: 6,
+      type: 'text_input',
+      category: 'daily_routine',
+      question: 'When do you wake up? Type your answer.',
+      placeholder: 'Type morning, afternoon, or night',
+      correctAnswers: ['morning', 'Morning', 'MORNING'],
+      hint: 'Think about when the sun comes up!',
+      visual: true
+    },
+
+    // 7. Identification - Which shows nighttime?
+    {
+      id: 7,
+      type: 'identification',
+      category: 'day_night',
+      question: 'Which picture shows nighttime?',
+      images: [
+        { id: 'stars', src: 'stars', description: 'Stars twinkling in dark sky', isCorrect: true },
+        { id: 'sun', src: 'sun', description: 'Bright sun in blue sky', isCorrect: false }
+      ],
+      visual: true,
+      correctAnswer: 'stars'
+    },
+
+    // 8. Text Input - What do you see in the sky at night?
+    {
+      id: 8,
+      type: 'text_input',
+      category: 'day_night',
+      question: 'What do you see in the sky at night? Type your answer.',
+      placeholder: 'Type what shines at night',
+      correctAnswers: ['moon', 'Moon', 'MOON', 'stars', 'Stars', 'STARS', 'moon and stars', 'stars and moon'],
+      hint: 'Look up at the dark sky!',
+      visual: true
+    },
+
+    // 9. True/False - The sun shines during the day
+    {
+      id: 9,
+      type: 'true_false',
+      category: 'day_night',
+      question: 'The sun shines during the day.',
+      image: 'bright_sun',
+      correctAnswer: true,
+      visual: true
+    },
+
+    // 10. Text Input - When do you eat lunch?
+    {
+      id: 10,
+      type: 'text_input',
+      category: 'daily_routine',
+      question: 'When do you eat lunch? Type your answer.',
+      placeholder: 'Type the time of day',
+      correctAnswers: ['afternoon', 'Afternoon', 'AFTERNOON', 'midday', 'Midday', 'MIDDAY'],
+      hint: 'It\'s in the middle of the day!',
+      visual: true
     }
   ],
 
   medium: [
-    // 6. Identification - Is this morning or afternoon?
+    // 11. Identification - Is this morning or afternoon?
     {
-      id: 6,
+      id: 11,
       type: 'identification',
       category: 'daily_activities',
       question: 'Is this morning or afternoon?',
@@ -80,9 +141,9 @@ export const timeQuestions = {
       visual: true
     },
 
-    // 7. Sequencing - Put daily activities in order
+    // 12. Sequencing - Put daily activities in order
     {
-      id: 7,
+      id: 12,
       type: 'sequencing',
       category: 'daily_routine',
       question: 'Put these activities in order from morning to night',
@@ -95,9 +156,9 @@ export const timeQuestions = {
       visual: true
     },
 
-    // 8. Matching - Match picture to label (sunrise/sunset)
+    // 13. Matching - Match picture to label (sunrise/sunset)
     {
-      id: 8,
+      id: 13,
       type: 'matching',
       category: 'time_scenes',
       question: 'Match each picture to the correct time label',
@@ -109,9 +170,9 @@ export const timeQuestions = {
       visual: true
     },
 
-    // 9. Fill-in-the-blank - The stars shine at ______
+    // 14. Fill-in-the-blank - The stars shine at ______
     {
-      id: 9,
+      id: 14,
       type: 'fill_blank',
       category: 'day_night',
       question: 'The stars shine at ______.',
@@ -120,9 +181,9 @@ export const timeQuestions = {
       visual: true
     },
 
-    // 10. Interactive - Light up sun for day or moon for night
+    // 15. Interactive - Light up sun for day or moon for night
     {
-      id: 10,
+      id: 15,
       type: 'interactive',
       category: 'day_night',
       question: 'Click to light up the sun for day or the moon for night',
@@ -133,27 +194,89 @@ export const timeQuestions = {
       ],
       visual: true,
       correctTarget: 'sun'
+    },
+
+    // 16. Text Input - What time do you go to school?
+    {
+      id: 16,
+      type: 'text_input',
+      category: 'daily_routine',
+      question: 'What time of day do you go to school? Type your answer.',
+      placeholder: 'Type morning, afternoon, or evening',
+      correctAnswers: ['morning', 'Morning', 'MORNING'],
+      hint: 'School usually starts early in the day!',
+      visual: true
+    },
+
+    // 17. True/False - You can see stars during the day
+    {
+      id: 17,
+      type: 'true_false',
+      category: 'day_night',
+      question: 'You can see stars during the day.',
+      image: 'daytime_sky',
+      correctAnswer: false,
+      visual: true
+    },
+
+    // 18. Text Input - When is it dark outside?
+    {
+      id: 18,
+      type: 'text_input',
+      category: 'day_night',
+      question: 'When is it dark outside? Type your answer.',
+      placeholder: 'Type the time when it gets dark',
+      correctAnswers: ['night', 'Night', 'NIGHT', 'evening', 'Evening', 'EVENING'],
+      hint: 'Think about when you can\'t see the sun!',
+      visual: true
+    },
+
+    // 19. Identification - What do you do in the evening?
+    {
+      id: 19,
+      type: 'identification',
+      category: 'daily_activities',
+      question: 'What do you usually do in the evening?',
+      images: [
+        { id: 'dinner', src: 'eating_dinner', description: 'Family eating dinner', isCorrect: true },
+        { id: 'breakfast', src: 'eating_breakfast', description: 'Child eating breakfast', isCorrect: false }
+      ],
+      visual: true,
+      correctAnswer: 'dinner'
+    },
+
+    // 20. Text Input - Complete the sentence
+    {
+      id: 20,
+      type: 'text_input',
+      category: 'daily_routine',
+      question: 'I brush my teeth in the ______ and before bed. Type your answer.',
+      placeholder: 'Type when you brush teeth',
+      correctAnswers: ['morning', 'Morning', 'MORNING'],
+      hint: 'When do you first brush your teeth each day?',
+      visual: true
     }
   ],
 
   hard: [
-    // 11. Audio-Visual Recognition - Sound identification
+    // 21. Audio-Visual Recognition - Morning rooster sound
     {
-      id: 11,
+      id: 21,
       type: 'audio_visual',
       category: 'sounds',
-      question: 'Listen to the sound and tell me: Is this day or night?',
+      question: '🐓 Listen to this friendly farm sound! When do you hear roosters say "Cock-a-doodle-doo"?',
       sound: 'rooster_crow',
-      soundDescription: 'Rooster crowing sound',
-      options: ['day', 'night'],
-      correctAnswer: 'day',
+      soundDescription: 'Rooster Crow',
+      options: ['Morning', 'Night'],
+      correctAnswer: 'Morning',
       visual: true,
-      audio: true
+      audio: true,
+      hint: 'Roosters wake up early to greet the sunrise!'
     },
 
-    // 12. Complex sequencing - Full day routine
+    // 22. Complex sequencing - Full day routine
     {
-      id: 12,
+      id: 22,
       type: 'sequencing',
       category: 'daily_routine',
       question: 'Put these activities in the correct order for a full day',
@@ -169,9 +292,9 @@ export const timeQuestions = {
       visual: true
     },
 
-    // 13. Multiple True/False
+    // 23. Multiple True/False
     {
-      id: 13,
+      id: 23,
       type: 'multiple_choice',
       category: 'daily_knowledge',
       question: 'Which of these things happen at night?',
@@ -185,23 +308,36 @@ export const timeQuestions = {
       visual: true
     },
 
-    // 14. Advanced Audio-Visual - Cricket sounds
+    // 24. Advanced Audio-Visual - Gentle cricket sounds
     {
-      id: 14,
+      id: 24,
       type: 'audio_visual',
       category: 'sounds',
-      question: 'Listen carefully! When do you usually hear this sound?',
+      question: '🦗 Listen to these gentle nature sounds! When do crickets sing their lullaby?',
       sound: 'cricket_chirping',
-      soundDescription: 'Crickets chirping sound',
-      options: ['day', 'night'],
-      correctAnswer: 'night',
+      soundDescription: 'Cricket Chirping',
+      options: ['Day', 'Night'],
+      correctAnswer: 'Night',
       visual: true,
-      audio: true
+      audio: true,
+      hint: 'Crickets make peaceful sounds when it\'s time to sleep!'
     },
 
-    // 15. Complex coloring and interaction
+    // 25. Text Input - Advanced time concepts
     {
-      id: 15,
+      id: 25,
+      type: 'text_input',
+      category: 'time_concepts',
+      question: 'What comes after morning but before evening? Type your answer.',
+      placeholder: 'Type the time of day',
+      correctAnswers: ['afternoon', 'Afternoon', 'AFTERNOON'],
+      hint: 'It\'s when you eat lunch!',
+      visual: true
+    },
+
+    // 26. Complex coloring and interaction
+    {
+      id: 26,
       type: 'scene_building',
       category: 'time_scenes',
       question: 'Build a nighttime scene by adding the moon, stars, and making the sky dark',
@@ -212,6 +348,56 @@ export const timeQuestions = {
       ],
       visual: true,
       interactive: true
+    },
+
+    // 27. Text Input - Time sequence understanding
+    {
+      id: 27,
+      type: 'text_input',
+      category: 'time_sequence',
+      question: 'If you wake up in the morning, what time comes next? Type your answer.',
+      placeholder: 'Type the next time of day',
+      correctAnswers: ['afternoon', 'Afternoon', 'AFTERNOON', 'midday', 'Midday', 'MIDDAY'],
+      hint: 'Think about the order of the day!',
+      visual: true
+    },
+
+    // 28. Advanced identification - Time-based activities
+    {
+      id: 28,
+      type: 'identification',
+      category: 'advanced_activities',
+      question: 'Which activity happens at bedtime?',
+      images: [
+        { id: 'story', src: 'reading_bedtime_story', description: 'Parent reading bedtime story', isCorrect: true },
+        { id: 'lunch', src: 'eating_lunch', description: 'Child eating lunch', isCorrect: false }
+      ],
+      visual: true,
+      correctAnswer: 'story'
+    },
+
+    // 29. Text Input - Complete the time pattern
+    {
+      id: 29,
+      type: 'text_input',
+      category: 'time_patterns',
+      question: 'Complete the pattern: Morning, Afternoon, ______. Type your answer.',
+      placeholder: 'Type what comes next',
+      correctAnswers: ['night', 'Night', 'NIGHT', 'evening', 'Evening', 'EVENING'],
+      hint: 'What time comes after afternoon?',
+      visual: true
+    },
+
+    // 30. Advanced True/False - Complex time concepts
+    {
+      id: 30,
+      type: 'true_false',
+      category: 'advanced_concepts',
+      question: 'The moon is visible only at night.',
+      image: 'moon_phases',
+      correctAnswer: false,
+      visual: true,
+      explanation: 'Sometimes you can see the moon during the day too!'
     }
   ]
 };

@@ -1280,7 +1280,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
             onClick={checkAnswer} 
             disabled={isChecking || (!selectedOption && !textInput && matchedPairs.size === 0 && sortedItems.length === 0 && tracedPath.length === 0 && constructedShapes.length === 0)}
           >
-            {isChecking ? 'AI Analyzing...' : 'Check Answer'}
+            {isChecking ? 'AI Analyzing...' : 'Next Question'}
           </button>
         </div>
         

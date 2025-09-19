@@ -420,6 +420,34 @@ input:focus, select:focus {
   font-weight: 700;
 }
 
+/* My Math Journey card styling */
+.journey-card {
+  border: 2px solid #ff4757 !important;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.journey-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(255, 71, 87, 0.2);
+  border-color: #ff3742 !important;
+}
+
+.journey-card p {
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+}
+
+.journey-card h2 {
+  color: #6366f1;
+  font-size: 2rem;
+  margin: 10px 0;
+  font-weight: 700;
+}
+
 .grade-info {
   background: var(--card-bg);
   padding: 25px;

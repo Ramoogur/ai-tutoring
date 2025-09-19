@@ -41,14 +41,55 @@
 /* Quiz Header */
 .quiz-header {
   background: white;
-  padding: 20px;
   border-radius: 15px;
-  margin-bottom: 20px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  padding: 20px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.quiz-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+.quiz-info h2 {
+  color: #333;
+  margin: 0;
+  font-size: 28px;
+}
+
+.progress-info {
+  display: flex;
+  gap: 15px;
+  font-size: 16px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.difficulty-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.difficulty-easy {
+  background: linear-gradient(135deg, #4CAF50, #8BC34A);
+  color: white;
+}
+
+.difficulty-medium {
+  background: linear-gradient(135deg, #FF9800, #FFC107);
+  color: white;
+}
+
+.difficulty-hard {
+  background: linear-gradient(135deg, #F44336, #E91E63);
+  color: white;
 }
 
 .progress-bar {

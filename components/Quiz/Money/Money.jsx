@@ -822,16 +822,19 @@ const Money = ({ topic, user, navigateTo }) => {
   return (
     <div className="money-quiz">
       <div className="quiz-header">
+        <div className="quiz-info">
+          <h2>💰 Money</h2>
+          <div className="progress-info">
+            <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
+            <span className={`difficulty-badge difficulty-${difficulty}`}>{difficulty.toUpperCase()}</span>
+          </div>
+        </div>
         <div className="progress-bar">
           <div 
             className="progress-fill" 
             style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
           ></div>
         </div>
-        <div className="question-counter">
-          Question {currentQuestionIndex + 1} of {questions.length}
-        </div>
-        <div className="difficulty-badge">{difficulty}</div>
       </div>
 
       <div className="quiz-content">

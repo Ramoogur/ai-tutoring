@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const Dashboard = ({ user, startQuiz }) => {
+const Dashboard = ({ user, startQuiz, navigateToProgress }) => {
   // Always use the user's grade from their profile
   const [selectedGrade, setSelectedGrade] = useState(user.grade);
   
@@ -85,9 +85,9 @@ const Dashboard = ({ user, startQuiz }) => {
           <p>Accuracy</p>
           <h2>{accuracy}%</h2>
         </div>
-        <div className="stat-card">
-          <p>Current Grade</p>
-          <h2>{user.grade}</h2>
+        <div className="stat-card journey-card" onClick={navigateToProgress}>
+          <p>🚀 My Math Journey</p>
+          <h2>View Progress</h2>
         </div>
       </div>
 
