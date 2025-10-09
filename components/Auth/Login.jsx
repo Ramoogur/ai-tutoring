@@ -91,7 +91,7 @@ const Login = ({ onLogin, navigateTo }) => {
   
   return (
     <div className="auth-container">
-      <h2 className="form-title">Login to MathWhiz</h2>
+      <h2 className="form-title">Login to Learn&Count</h2>
       {error && <div className="error-message">{error}</div>}
       
       <div className="form-group">

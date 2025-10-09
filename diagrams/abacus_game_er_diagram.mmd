@@ -1,0 +1,45 @@
+erDiagram
+  STUDENT ||--o{ GAME_SESSIONS : "plays"
+  GAME_SESSIONS ||--o{ ATTEMPTS : "contains"
+  GAME_SESSIONS ||--o{ EVENTS : "generates"
+
+  STUDENT {
+    uuid id PK
+    text display_name
+    jsonb profile_meta
+    timestamptz created_at
+  }
+  
+  GAME_SESSIONS {
+    uuid id PK
+    uuid student_id FK
+    text mode
+    int target_number
+    timestamptz started_at
+    timestamptz ended_at
+    int score
+    int total_prompts
+    jsonb meta
+  }
+  
+  ATTEMPTS {
+    uuid id PK
+    uuid session_id FK
+    int question_index
+    text question_type
+    int operand_a
+    int operand_b
+    int target_number
+    int answer_number
+    boolean is_correct
+    int time_ms
+    timestamptz created_at
+  }
+  
+  EVENTS {
+    uuid id PK
+    uuid session_id FK
+    text event_type
+    jsonb payload
+    timestamptz created_at
+  }

@@ -465,7 +465,7 @@ const Quiz = ({ topic, user, navigateTo }) => {
     }
     
     // Update both the session user and the registered user data
-    localStorage.setItem('mathWhizUser', JSON.stringify(updatedUser));
+    localStorage.setItem('learnCountUser', JSON.stringify(updatedUser));
     
     // Also update the registered user data to persist between logins
 
@@ -476,7 +476,7 @@ const Quiz = ({ topic, user, navigateTo }) => {
       p_attempts_inc: questions.length,
       p_correct_inc: score
     });
-    const registeredUserKey = 'mathWhizRegistered_' + user.username;
+    const registeredUserKey = 'learnCountRegistered_' + user.username;
     const registeredUserData = JSON.parse(localStorage.getItem(registeredUserKey));
     if (registeredUserData) {
       registeredUserData.progress = updatedUser.progress;

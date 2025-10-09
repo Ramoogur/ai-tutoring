@@ -40,7 +40,7 @@ const LandingPage = ({ navigateTo }) => {
       <div className="container">
         <div className="hero-section">
           <div className="hero-content">
-            <h1 className="hero-title">Welcome to Math<span>Whiz</span></h1>
+              <h1 className="hero-title">Welcome to Learn<span>&Count</span></h1>
             <p className="hero-subtitle">🌟 The AI-powered math tutor for grades 1-3 🌟</p>
             <div className="hero-cta">
               <button className="hero-button" onClick={() => navigateTo('login')}>
@@ -66,7 +66,7 @@ const LandingPage = ({ navigateTo }) => {
       {/* Features Section */}
       <div className="container">
         <div className="features-section">
-          <h2 className="section-title">Why Choose MathWhiz?</h2>
+          <h2 className="section-title">Why Choose Learn&Count?</h2>
           <div className="features-grid">
             <div className="feature-card">
               <div className="feature-icon">🧠</div>
@@ -142,7 +142,7 @@ const LandingPage = ({ navigateTo }) => {
           <div className="testimonials-grid">
             <div className="testimonial-card">
               <div className="testimonial-rating">⭐⭐⭐⭐⭐</div>
-              <p className="testimonial-text">"My child improved their math skills within just a few weeks of using MathWhiz!"</p>
+              <p className="testimonial-text">"My child improved their math skills within just a few weeks of using Learn&Count!"</p>
               <div className="testimonial-author">- Parent of a 2nd grader</div>
             </div>
             <div className="testimonial-card">
@@ -164,7 +164,7 @@ const LandingPage = ({ navigateTo }) => {
         <div className="container">
           <div className="cta-content">
             <h2 className="cta-title">Ready to make math fun? 🎉</h2>
-            <p className="cta-subtitle">Join thousands of students who love learning with MathWhiz</p>
+            <p className="cta-subtitle">Join thousands of students who love learning with Learn&Count</p>
             <div className="cta-stats">
               <div className="stat">
                 <span className="stat-number">10,000+</span>
@@ -190,7 +190,7 @@ const LandingPage = ({ navigateTo }) => {
       <footer>
         <div className="container">
           <div className="footer-content">
-            <p>© 2023 MathWhiz - AI Math Tutor for Grades 1-3</p>
+            <p>© 2023 Learn&Count - AI Math Tutor for Grades 1-3</p>
             <p>Made with <span className="footer-love">❤️</span> for young learners</p>
           </div>
         </div>

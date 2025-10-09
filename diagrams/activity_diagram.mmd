@@ -1,0 +1,23 @@
+flowchart TD
+  A[Student Opens Topic] --> B[Initialize Learning Session]
+  B --> C[Load Questions Based on Current Difficulty]
+  C --> D[Display Learning Interface]
+  D --> E{Student Interacts}
+  E -->|Answer/Action| F[Process Student Response]
+  F --> G[Analyze Performance]
+  G --> H[Adjust Difficulty Level]
+  H --> I[Show Feedback & Update Interface]
+  I --> J{More Questions?}
+  J -->|Yes| D
+  J -->|No| K[Complete Learning Session]
+  K --> L[Calculate Session Performance]
+  L --> M[Determine Next Session Difficulty]
+  M --> N[Save Progress to Database]
+  N --> O[Update Local Storage]
+  O --> P[Show Results & Learning Analytics]
+  P --> Q[End Session]
+
+  style A fill:#e8f5e8
+  style K fill:#fff3cd
+  style P fill:#d4edda
+  style Q fill:#f8d7da

@@ -1,0 +1,43 @@
+erDiagram
+  STUDENT ||--o{ STUDENTTOPICSTATS : "has progress in"
+  TOPIC ||--o{ STUDENTTOPICSTATS : "tracked by"
+  STUDENT ||--o{ QUIZSESSIONS : "completes"
+  TOPIC ||--o{ QUIZSESSIONS : "contains"
+
+  STUDENT {
+    uuid id PK
+    text username
+    timestamp registration_date
+    jsonb profile_data
+  }
+  
+  TOPIC {
+    int id PK
+    text name
+    text description
+    text curriculum_level
+  }
+  
+  STUDENTTOPICSTATS {
+    uuid student_id FK
+    int topic_id FK
+    text current_difficulty
+    int total_attempts
+    int correct_answers
+    int best_streak
+    timestamp last_attempted
+    jsonb progress_data
+  }
+  
+  QUIZSESSIONS {
+    uuid id PK
+    uuid student_id FK
+    int topic_id FK
+    timestamp session_date
+    text difficulty_level
+    int accuracy_percentage
+    int time_spent
+    boolean difficulty_changed
+    text next_difficulty
+    jsonb ai_feedback
+  }

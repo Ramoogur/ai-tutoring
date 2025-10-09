@@ -47,7 +47,7 @@ const App = () => {
 
   // Check if user is already logged in from localStorage
   useEffect(() => {
-    const savedUser = localStorage.getItem('mathWhizUser');
+    const savedUser = localStorage.getItem('learnCountUser');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
       setIsLoggedIn(true);
@@ -58,14 +58,14 @@ const App = () => {
   const handleLogin = (userData) => {
     setUser(userData);
     setIsLoggedIn(true);
-    localStorage.setItem('mathWhizUser', JSON.stringify(userData));
+    localStorage.setItem('learnCountUser', JSON.stringify(userData));
     setCurrentPage('dashboard');
   };
 
   const handleLogout = () => {
     setUser(null);
     setIsLoggedIn(false);
-    localStorage.removeItem('mathWhizUser');
+    localStorage.removeItem('learnCountUser');
     setCurrentPage('login');
   };
 
@@ -84,7 +84,7 @@ const App = () => {
     return (
       <nav>
         <div className="container nav-container">
-          <a href="#" className="logo" onClick={() => navigateTo('dashboard')}>Math<span>Whiz</span></a>
+          <a href="#" className="logo" onClick={() => navigateTo('dashboard')}>Learn<span>&Count</span></a>
           <div className="nav-links">
             <a href="#" onClick={() => navigateTo('dashboard')}>Home</a>
             <a href="#" onClick={handleLogout}>Logout</a>

@@ -1,0 +1,31 @@
+sequenceDiagram
+  participant S as Student
+  participant GC as Game Component
+  participant PS as Progress Service
+  participant PT as Performance Tracker
+  participant DB as Database System
+
+  S->>GC: Play game / interact with abacus
+  GC->>GC: initializeGame() / startGameSession()
+  GC->>PS: saveGameSession(sessionData)
+  PS->>DB: INSERT INTO game_sessions
+  
+  loop Game Interactions
+    S->>GC: Make move / answer question
+    GC->>GC: updateGameState()
+    GC->>PS: logGameEvent(eventType, eventData)
+    PS->>DB: INSERT INTO events
+    GC->>PS: saveGameAttempt(attemptData)
+    PS->>DB: INSERT INTO attempts
+  end
+  
+  GC->>GC: completeGame() / endGameSession()
+  GC->>PS: saveGameSession(finalSessionData)
+  PS->>DB: UPDATE game_sessions
+  
+  GC->>PT: trackGameSession(gameData, score, attempts)
+  PT->>PS: getGamePerformance(studentId, gameType)
+  PS->>DB: SELECT FROM game_sessions, attempts
+  PS-->>PT: gameAnalyticsData
+  PT->>PT: displayGameAnalytics(gameData)
+  PT-->>GC: gamePerformanceReport

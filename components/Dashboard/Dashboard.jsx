@@ -115,6 +115,11 @@ const Dashboard = ({ user, startQuiz, navigateToProgress }) => {
             <h3>Abacus</h3>
             <p>Interactive counting with abacus</p>
           </div>
+          <div className="topic-card" onClick={() => handleStartQuiz({ name: 'Matching', description: 'Match numbers, shapes, and patterns' })}>
+            <div className="topic-icon">🔗</div>
+            <h3>Matching</h3>
+            <p>Match numbers, shapes, and patterns</p>
+          </div>
         </div>
       </div>
     </div>

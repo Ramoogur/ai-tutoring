@@ -1,7 +1,7 @@
-# MathWhiz Web Application
+# Learn&Count Web Application
 
 ## Project Overview
-MathWhiz is a web application designed to help students practice math with interactive quizzes. The application has support for both student and parent accounts, with a dashboard for tracking progress.
+Learn&Count is a web application designed to help students practice math with interactive quizzes. The application has support for both student and parent accounts, with a dashboard for tracking progress.
 
 ## Project Structure
 - `index.html` - Main entry point

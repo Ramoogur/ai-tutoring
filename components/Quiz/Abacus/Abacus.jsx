@@ -1,5 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './Abacus.css';
+import { startGameSession, endGameSession, logAttempt, logEvent } from '../../../utils/abacusApi';
+
+// Voice synthesis function
+const speak = (text, options = {}) => {
+  if (!('speechSynthesis' in window)) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = options.rate || 0.9;
+  utter.pitch = options.pitch || 1.1;
+  utter.volume = options.volume || 1.0;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+};
 
 const Abacus = ({ topic, user, navigateTo }) => {
   const [gameMode, setGameMode] = useState('freePlay'); // 'freePlay', 'challenge', 'practice'
@@ -8,14 +20,24 @@ const Abacus = ({ topic, user, navigateTo }) => {
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [userAnswer, setUserAnswer] = useState(0);
   const [beadPositions, setBeadPositions] = useState([]);
   const [feedback, setFeedback] = useState('');
   const [isAnimating, setIsAnimating] = useState(false);
   const [level, setLevel] = useState(1);
   const [totalCorrect, setTotalCorrect] = useState(0);
   const [showHint, setShowHint] = useState(false);
+  
+  // New Grade-1 features
+  const [session, setSession] = useState(null);
+  const [qIndex, setQIndex] = useState(0);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [tens, setTens] = useState(0);
+  const [ones, setOnes] = useState(0);
+  const boardRef = useRef(null);
 
+  // Calculate total from tens and ones
+  const userAnswer = tens * 10 + ones;
+  
   // Initialize abacus with 10 beads (2 rows of 5)
   useEffect(() => {
     const initialBeads = [];
@@ -33,6 +55,32 @@ const Abacus = ({ topic, user, navigateTo }) => {
     setBeadPositions(initialBeads);
   }, []);
 
+  // Initialize session for data capture
+  useEffect(() => {
+    (async () => {
+      try {
+        if (user?.id) {
+          // Map game modes to valid modes for database constraint
+          const modeMap = {
+            'freePlay': 'free',
+            'practice': 'count', 
+            'challenge': 'make'
+          };
+          
+          const s = await startGameSession({ 
+            studentId: user.id, 
+            mode: modeMap[gameMode] || 'free',
+            targetNumber: null 
+          });
+          setSession(s);
+        }
+      } catch (error) {
+        console.error('Failed to start session:', error);
+        // Continue without session for demo
+      }
+    })();
+  }, [user?.id, gameMode]); // Add gameMode dependency
+
   // Generate new target number based on level
   const generateNewTarget = () => {
     const maxNumber = Math.min(3 + level, 10);
@@ -40,6 +88,13 @@ const Abacus = ({ topic, user, navigateTo }) => {
     setTargetNumber(newTarget);
     setShowHint(false);
     setFeedback('');
+    setTens(0);
+    setOnes(0);
+    setQIndex(prev => prev + 1);
+    
+    // Voice instruction
+    const phrase = `Make ${newTarget} on the abacus.`;
+    if (voiceEnabled) speak(phrase);
   };
 
   // Start a new game
@@ -61,6 +116,21 @@ const Abacus = ({ topic, user, navigateTo }) => {
       )
     );
     
+    // Log bead move event
+    const bead = beadPositions.find(b => b.id === beadId);
+    if (bead) {
+      logEvent({ 
+        sessionId: session?.id, 
+        eventType: 'bead_move', 
+        eventData: { 
+          beadId, 
+          row: bead.row, 
+          value: bead.value, 
+          action: bead.active ? 'deactivate' : 'activate'
+        } 
+      });
+    }
+    
     // Play sound effect (simulated)
     setTimeout(() => setIsAnimating(false), 200);
   };
@@ -72,6 +142,8 @@ const Abacus = ({ topic, user, navigateTo }) => {
   };
 
   const resetAbacus = () => {
+    setTens(0);
+    setOnes(0);
     setBeadPositions(prev => 
       prev.map(bead => ({ ...bead, active: false }))
     );
@@ -81,23 +153,60 @@ const Abacus = ({ topic, user, navigateTo }) => {
     if (!targetNumber) return;
     
     setShowHint(true);
-    setFeedback(`💡 Hint: Try using ${Math.floor(targetNumber / 5)} big beads (5s) and ${targetNumber % 5} small beads (1s)!`);
+    const hintText = `Try using ${Math.floor(targetNumber / 5)} big beads (5s) and ${targetNumber % 5} small beads (1s)!`;
+    setFeedback(`💡 Hint: ${hintText}`);
+    
+    // Voice hint
+    if (voiceEnabled) speak(hintText);
+    
+    // Log hint event
+    logEvent({ 
+      sessionId: session?.id, 
+      eventType: 'hint_used', 
+      eventData: { targetNumber, hintText } 
+    });
   };
 
   useEffect(() => {
-    const newAnswer = calculateTotal();
-    setUserAnswer(newAnswer);
-    
     // Auto-check in challenge/practice mode
-    if ((gameMode === 'challenge' || gameMode === 'practice') && targetNumber && newAnswer > 0) {
-      checkAnswer(newAnswer);
+    if ((gameMode === 'challenge' || gameMode === 'practice') && targetNumber && userAnswer > 0) {
+      checkAnswer(userAnswer);
     }
-  }, [beadPositions, gameMode, targetNumber]);
+  }, [tens, ones, gameMode, targetNumber]);
 
-  const checkAnswer = (answer = userAnswer) => {
+  const checkAnswer = async (answer = userAnswer) => {
     if (!targetNumber || answer === 0) return;
     
     const isCorrect = answer === targetNumber;
+    
+    // Log attempt
+    if (session && session.id !== '00000000-0000-0000-0000-000000000001') {
+      // Map game modes to valid question types for database constraint
+      const questionTypeMap = {
+        'freePlay': 'count',
+        'practice': 'count', 
+        'challenge': 'make'
+      };
+      
+      console.log('🎯 Logging attempt with session:', session.id, 'gameMode:', gameMode, 'questionType:', questionTypeMap[gameMode] || 'count');
+      
+      await logAttempt({
+        sessionId: session.id,
+        questionIndex: qIndex,
+        questionType: questionTypeMap[gameMode] || 'count',
+        targetNumber: targetNumber,
+        studentAnswer: answer,
+        tensUsed: tens,
+        onesUsed: ones,
+        isCorrect: isCorrect,
+        timeTaken: 0,
+        hintsUsed: showHint ? 1 : 0
+      });
+    } else if (session && session.id === '00000000-0000-0000-0000-000000000001') {
+      console.log('⚠️ Skipping attempt logging - using mock session ID');
+    } else {
+      console.log('⚠️ No session available for attempt logging');
+    }
     
     if (isCorrect) {
       // Correct answer celebration
@@ -110,12 +219,17 @@ const Abacus = ({ topic, user, navigateTo }) => {
       }
       
       setShowCelebration(true);
-      setFeedback(`🎉 Perfect! ${targetNumber} is correct! +${10 * level} points`);
+      const successMessage = `Perfect! ${targetNumber} is correct!`;
+      setFeedback(`🎉 ${successMessage} +${10 * level} points`);
+      
+      // Voice feedback
+      if (voiceEnabled) speak('Great job!');
       
       // Level up every 5 correct answers
       if ((totalCorrect + 1) % 5 === 0 && level < 5) {
         setLevel(level + 1);
         setFeedback(`🌟 Level Up! You're now at Level ${level + 1}! +${10 * level} points`);
+        if (voiceEnabled) speak(`Level up! You're now at Level ${level + 1}!`);
       }
       
       setTimeout(() => {
@@ -125,10 +239,14 @@ const Abacus = ({ topic, user, navigateTo }) => {
       }, 2000);
       
     } else if (answer > targetNumber) {
-      setFeedback(`📉 Too high! Try ${targetNumber}, not ${answer}`);
+      const message = `Too high! Try ${targetNumber}, not ${answer}`;
+      setFeedback(`📉 ${message}`);
+      if (voiceEnabled) speak(message);
       setStreak(0);
     } else {
-      setFeedback(`📈 Too low! Try ${targetNumber}, not ${answer}`);
+      const message = `Too low! Try ${targetNumber}, not ${answer}`;
+      setFeedback(`📈 ${message}`);
+      if (voiceEnabled) speak(message);
       setStreak(0);
     }
   };
@@ -140,11 +258,24 @@ const Abacus = ({ topic, user, navigateTo }) => {
     setLevel(1);
     setTotalCorrect(0);
     setFeedback('');
+    setTens(0);
+    setOnes(0);
     resetAbacus();
+    
+    // Log mode change
+    logEvent({ 
+      sessionId: session?.id, 
+      eventType: 'mode_change', 
+      eventData: { mode } 
+    });
     
     if (mode === 'freePlay') {
       setTargetNumber(null);
-      setFeedback('🎨 Free Play Mode: Create any number you want on the abacus!');
+      const message = 'Free Play Mode: Create any number you want on the abacus!';
+      setFeedback(`🎨 ${message}`);
+      if (voiceEnabled) speak(message);
+    } else {
+      generateNewTarget();
     }
   };
 
@@ -156,134 +287,170 @@ const Abacus = ({ topic, user, navigateTo }) => {
     return "🌟 You're doing great!";
   };
 
+  // Cleanup on unmount
+  useEffect(() => () => {
+    if (session) {
+      endGameSession(session.id, { 
+        score, 
+        totalPrompts: qIndex,
+        correctAnswers: Math.floor(score / 10),
+        level,
+        bestStreak,
+        timeSpent: 0 // You can track actual time if needed
+      });
+    }
+  }, [session, score, qIndex, level, bestStreak]);
+
   return (
-    <div className="abacus-container">
-      <div className="abacus-layout">
-        {/* Main Game Content */}
-        <div className="abacus-main">
-          {/* Game Header */}
-          <div className="abacus-header">
-        <h1>🧮 Abacus Game</h1>
-        <div className="game-stats">
-          <div className="stat-item">
-            <span className="stat-label">Score</span>
-            <span className="stat-value">{score}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">Level</span>
-            <span className="stat-value">{level}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">Streak</span>
-            <span className="stat-value">{streak}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">Best</span>
-            <span className="stat-value">{bestStreak}</span>
+    <div className="modern-abacus-game" ref={boardRef}>
+      {/* Header */}
+      <div className="modern-header">
+        <div className="header-left">
+          <h1 className="game-title">Math Whiz</h1>
+        </div>
+        <div className="header-right">
+          <div className="header-nav">
+            <a href="#" className="nav-link">Home</a>
+            <a href="#" className="nav-link">Logout</a>
           </div>
         </div>
       </div>
 
-      {/* Game Mode Selector */}
-      <div className="game-modes">
+      {/* Game Controls */}
+      <div className="game-controls">
+        <button 
+          onClick={() => setVoiceEnabled(!voiceEnabled)}
+          className={`voice-btn ${voiceEnabled ? 'enabled' : 'disabled'}`}
+          aria-label={`Voice ${voiceEnabled ? 'enabled' : 'disabled'}`}
+        >
+          {voiceEnabled ? '🔊' : '🔇'}
+        </button>
+        <button 
+          onClick={checkAnswer}
+          className="check-btn"
+          aria-label="Check Answer"
+        >
+          ✓
+        </button>
+      </div>
+
+      {/* Mode Selector */}
+      <div className="mode-selector">
         <button 
           className={`mode-btn ${gameMode === 'freePlay' ? 'active' : ''}`}
           onClick={() => switchMode('freePlay')}
         >
-          🎨 Free Play
+          🎨 Free
         </button>
         <button 
           className={`mode-btn ${gameMode === 'practice' ? 'active' : ''}`}
           onClick={() => switchMode('practice')}
         >
-          📚 Practice
+          📚 Count
         </button>
         <button 
           className={`mode-btn ${gameMode === 'challenge' ? 'active' : ''}`}
           onClick={() => switchMode('challenge')}
         >
-          🏆 Challenge
+          🏆 Make
         </button>
       </div>
 
-      {/* Target Section */}
-      {targetNumber && (
-        <div className="target-section">
-          <h2>Make this number: <span className="target-number">{targetNumber}</span></h2>
-          <div className="target-helpers">
-            <button onClick={showHintHelper} className="hint-btn">
-              💡 Hint
-            </button>
-            <button onClick={resetAbacus} className="reset-btn">
-              🔄 Clear
-            </button>
+      {/* Main Content */}
+      <div className="main-content">
+        {/* Target Display */}
+        {targetNumber && (
+          <div className="target-display">
+            <div className="target-label">Make this number:</div>
+            <div className="target-number">{targetNumber}</div>
+            <div className="target-actions">
+              <button onClick={showHintHelper} className="action-btn" aria-label="Get Hint">
+                💡 Hint
+              </button>
+              <button onClick={resetAbacus} className="action-btn" aria-label="Clear Abacus">
+                🔄 Clear
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Encouragement */}
+        <div className="encouragement">
+          <span className="encouragement-icon">⭐</span>
+          <span>You're doing great!</span>
+        </div>
+
+        {/* Place Value Container */}
+        <div className={`place-value-container ${showCelebration ? 'celebrating' : ''}`}>
+          {/* Place Value Sections */}
+          <div className="place-value-sections">
+            {/* Tens Section */}
+            <div className="place-value-section">
+              <div className="section-header">
+                <div className="section-label">Tens</div>
+                <div className="value-display">{tens}</div>
+              </div>
+              <div className="bead-grid">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <button
+                    key={`tens-${i}`}
+                    className={`bead tens-bead ${i < tens ? 'active' : ''}`}
+                    onClick={() => setTens(i + 1)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setTens(Math.max(0, i));
+                    }}
+                    aria-label={`Set tens to ${i + 1}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+              <div className="control-buttons">
+                <button onClick={() => setTens(Math.max(0, tens - 1))} className="control-btn minus">-</button>
+                <button onClick={() => setTens(Math.min(9, tens + 1))} className="control-btn plus">+</button>
+              </div>
+            </div>
+            
+            {/* Ones Section */}
+            <div className="place-value-section">
+              <div className="section-header">
+                <div className="section-label">Ones</div>
+                <div className="value-display">{ones}</div>
+              </div>
+              <div className="bead-grid">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <button
+                    key={`ones-${i}`}
+                    className={`bead ones-bead ${i < ones ? 'active' : ''}`}
+                    onClick={() => setOnes(i + 1)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setOnes(Math.max(0, i));
+                    }}
+                    aria-label={`Set ones to ${i + 1}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+              <div className="control-buttons">
+                <button onClick={() => setOnes(Math.max(0, ones - 1))} className="control-btn minus">-</button>
+                <button onClick={() => setOnes(Math.min(9, ones + 1))} className="control-btn plus">+</button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Total Display */}
+          <div className="total-display">
+            <div className="total-label">Total:</div>
+            <div className={`total-number ${userAnswer === targetNumber && targetNumber ? 'correct' : ''}`}>
+              {userAnswer}
+            </div>
           </div>
         </div>
-      )}
 
-      {/* Encouragement */}
-      <div className="encouragement">
-        {getEncouragement()}
-      </div>
-
-      {/* Abacus */}
-      <div className={`abacus-frame ${showCelebration ? 'celebrating' : ''}`}>
-        <div className="abacus-title">Your Abacus</div>
-        
-        {/* Top row - 5s */}
-        <div className="abacus-row top-row">
-          <span className="row-label">5s</span>
-          <div className="beads-container">
-            {beadPositions
-              .filter(bead => bead.row === 0)
-              .map(bead => (
-                <div
-                  key={bead.id}
-                  className={`bead top-bead ${bead.active ? 'active' : ''} ${isAnimating ? 'animating' : ''}`}
-                  onClick={() => toggleBead(bead.id)}
-                >
-                  <span className="bead-number">5</span>
-                  <div className="bead-glow"></div>
-                </div>
-              ))
-            }
-          </div>
-        </div>
-
-        <div className="abacus-divider">
-          <div className="divider-decoration"></div>
-        </div>
-
-        {/* Bottom row - 1s */}
-        <div className="abacus-row bottom-row">
-          <span className="row-label">1s</span>
-          <div className="beads-container">
-            {beadPositions
-              .filter(bead => bead.row === 1)
-              .map(bead => (
-                <div
-                  key={bead.id}
-                  className={`bead bottom-bead ${bead.active ? 'active' : ''} ${isAnimating ? 'animating' : ''}`}
-                  onClick={() => toggleBead(bead.id)}
-                >
-                  <span className="bead-number">1</span>
-                  <div className="bead-glow"></div>
-                </div>
-              ))
-            }
-          </div>
-        </div>
-      </div>
-
-      {/* Answer Display */}
-      <div className="answer-section">
-        <div className="current-total">
-          <span className="total-label">Your Number:</span>
-          <span className={`total-display ${userAnswer === targetNumber && targetNumber ? 'correct' : ''}`}>
-            {userAnswer}
-          </span>
-        </div>
-        
+        {/* Feedback Display */}
         {feedback && (
           <div className={`feedback-message ${showCelebration ? 'celebration' : ''}`}>
             {feedback}
@@ -291,34 +458,7 @@ const Abacus = ({ topic, user, navigateTo }) => {
         )}
       </div>
 
-        {/* Back Button */}
-      </div>
-      {/* Instructions Sidebar */}
-      <aside className="abacus-sidebar">
-        <div className="instructions">
-          <h3>🎯 How to Play:</h3>
-          <div className="instruction-grid">
-            <div className="instruction-item">
-              <span className="instruction-icon">🔴</span>
-              <span>Red beads = 5 points</span>
-            </div>
-            <div className="instruction-item">
-              <span className="instruction-icon">🔵</span>
-              <span>Blue beads = 1 point</span>
-            </div>
-            <div className="instruction-item">
-              <span className="instruction-icon">👆</span>
-              <span>Click to move beads</span>
-            </div>
-            <div className="instruction-item">
-              <span className="instruction-icon">🎯</span>
-              <span>Match the target number</span>
-            </div>
-          </div>
-        </div>
-      </aside>
-      </div>
-      <button onClick={() => navigateTo('dashboard')} className="back-btn fixed-dashboard-btn">
+      <button onClick={() => navigateTo('dashboard')} className="back-btn">
         🏠 Back to Dashboard
       </button>
     </div>

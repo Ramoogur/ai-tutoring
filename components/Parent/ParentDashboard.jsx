@@ -18,7 +18,7 @@ const ParentDashboard = ({ user, navigateTo }) => {
     // If user has linked accounts, load their data
     if (user.linkedAccounts && user.linkedAccounts.length > 0) {
       user.linkedAccounts.forEach(username => {
-        const studentData = localStorage.getItem('mathWhizRegistered_' + username);
+        const studentData = localStorage.getItem('learnCountRegistered_' + username);
         if (studentData) {
           const student = JSON.parse(studentData);
           linkedStudents.push({
@@ -46,7 +46,7 @@ const ParentDashboard = ({ user, navigateTo }) => {
     setError('');
     
     // Check if student exists
-    const studentData = localStorage.getItem('mathWhizRegistered_' + studentUsername);
+    const studentData = localStorage.getItem('learnCountRegistered_' + studentUsername);
     if (!studentData) {
       setError('Student account not found');
       return;
@@ -71,9 +71,9 @@ const ParentDashboard = ({ user, navigateTo }) => {
     updatedUser.linkedAccounts.push(studentUsername);
     
     // Update localStorage
-    localStorage.setItem('mathWhizUser', JSON.stringify(updatedUser));
-    localStorage.setItem('mathWhizRegistered_' + user.username, JSON.stringify({
-      ...JSON.parse(localStorage.getItem('mathWhizRegistered_' + user.username)),
+    localStorage.setItem('learnCountUser', JSON.stringify(updatedUser));
+    localStorage.setItem('learnCountRegistered_' + user.username, JSON.stringify({
+      ...JSON.parse(localStorage.getItem('learnCountRegistered_' + user.username)),
       linkedAccounts: updatedUser.linkedAccounts
     }));
     
