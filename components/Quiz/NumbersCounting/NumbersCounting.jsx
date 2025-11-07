@@ -3,6 +3,9 @@ import { supabase } from '../../../utils/supabaseClient';
 import { aiController } from '../../../utils/aiController';
 import { aiTutor } from '../../../utils/aiTutor';
 import questionService from './questionService';
+import TTSButton from '../TTSButton';
+import TranslationButton from '../TranslationButton';
+import translationService from '../../../utils/translationService';
 import './NumbersCounting.css';
 
 // Static data for rendering (no longer importing from external file)
@@ -62,6 +65,12 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
   const [useGPTQuestions, setUseGPTQuestions] = useState(true);
   const [gptGenerating, setGptGenerating] = useState(false);
   const [questionSource, setQuestionSource] = useState('static'); // 'gpt' or 'static'
+  
+  // Translation states
+  const [isFrench, setIsFrench] = useState(false);
+  const [translatedQuestions, setTranslatedQuestions] = useState([]);
+  const [translatedUITexts, setTranslatedUITexts] = useState({});
+  const [isTranslating, setIsTranslating] = useState(false);
   
   // Canvas and drawing refs
   const canvasRef = useRef(null);
@@ -274,7 +283,81 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     };
   };
 
-  const getCurrentQuestion = () => questions[currentQuestionIndex];
+  const getCurrentQuestion = () => {
+    if (isFrench && translatedQuestions[currentQuestionIndex]) {
+      return translatedQuestions[currentQuestionIndex];
+    }
+    return questions[currentQuestionIndex];
+  };
+
+  // Translation toggle handler
+  const handleTranslationToggle = async () => {
+    if (isTranslating) return;
+    
+    setIsTranslating(true);
+    try {
+      if (isFrench) {
+        // Switch back to English
+        setIsFrench(false);
+        setTranslatedQuestions([]);
+        setTranslatedUITexts({});
+      } else {
+        // Translate to French
+        setIsFrench(true);
+        
+        // Translate all questions
+        const translated = await Promise.all(
+          questions.map(q => translationService.translateQuestion(q, 'fr'))
+        );
+        setTranslatedQuestions(translated);
+        
+        // Translate UI texts
+        const uiTexts = {
+          'Numbers & Counting Quiz': 'Quiz de Nombres et Comptage',
+          'Question': 'Question',
+          'of': 'de',
+          'Checking...': 'Vérification...',
+          'Next Question': 'Question Suivante',
+          'Numbers & Counting Complete!': 'Nombres et Comptage Terminé!',
+          'Return to Home': 'Retour à l\'Accueil',
+          'AI Remix Quiz': 'Quiz AI Remix',
+          'Preparing Numbers & Counting Quiz': 'Préparation du Quiz de Nombres et Comptage',
+          'GPT-3.5 is generating personalized questions...': 'GPT-3.5 génère des questions personnalisées...',
+          'AI is selecting personalized questions for you...': 'L\'IA sélectionne des questions personnalisées pour vous...',
+          'Dynamic Questions': 'Questions Dynamiques',
+          'Static Questions': 'Questions Statiques',
+          'Enter your answer below:': 'Entrez votre réponse ci-dessous:',
+          'Count the': 'Comptez les',
+          's above and type the number': 's ci-dessus et tapez le nombre',
+          'Click on the canvas to draw': 'Cliquez sur le canevas pour dessiner',
+          'Objects drawn:': 'Objets dessinés:',
+          'Clear': 'Effacer',
+          'Instructions:': 'Instructions:',
+          'Count these': 'Comptez ces',
+          's:': 's:',
+          'Choose the correct number:': 'Choisissez le bon nombre:',
+          'Color exactly': 'Colorez exactement',
+          's. Click to color/uncolor.': 's. Cliquez pour colorier/décolorier.',
+          'Colored:': 'Coloré:',
+          'Too many!': 'Trop!',
+          'Perfect!': 'Parfait!',
+          'Which group has more': 'Quel groupe a plus de',
+          's?': 's?',
+          'Click on the item that doesn\'t belong with the others.': 'Cliquez sur l\'élément qui n\'appartient pas aux autres.',
+          'Type the missing letters': 'Tapez les lettres manquantes',
+          'Enter number here (0-10)': 'Entrez le nombre ici (0-10)',
+          'Enter total number (0-10)': 'Entrez le nombre total (0-10)'
+        };
+        
+        const translatedUI = await translationService.translateUITexts(uiTexts, 'fr');
+        setTranslatedUITexts(translatedUI);
+      }
+    } catch (error) {
+      console.error('Translation error:', error);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   // Tracing functionality
   const startTracing = (e) => {
@@ -706,6 +789,18 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     }
   };
 
+  // Helper function to extract options for TTS
+  const getNumbersCountingOptions = (question) => {
+    if (!question) return [];
+    if (question.options) {
+      return question.options.map(opt => 
+        typeof opt === 'object' ? (opt.text || opt.label || opt.id || '') : opt
+      );
+    }
+    if (question.choices) return question.choices;
+    return [];
+  };
+
   // Render different question types
   const renderQuestion = () => {
     const question = getCurrentQuestion();
@@ -765,7 +860,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           onMouseLeave={stopTracing}
         />
       </div>
-      <button onClick={clearTracing} className="clear-btn">Clear</button>
+      <button onClick={clearTracing} className="clear-btn">{isFrench ? (translatedUITexts['Clear'] || 'Effacer') : 'Clear'}</button>
     </div>
   );
 
@@ -780,14 +875,14 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
         ))}
       </div>
       <div className="input-instruction">
-        <p><strong>Enter your answer below:</strong></p>
-        <p>Count the {question.objects}s above and type the number</p>
+        <p><strong>{isFrench ? (translatedUITexts['Enter your answer below:'] || 'Entrez votre réponse ci-dessous:') : 'Enter your answer below:'}</strong></p>
+        <p>{isFrench ? `${translatedUITexts['Count the'] || 'Comptez les'} ${question.objects}s ${translatedUITexts['s above and type the number'] || 'ci-dessus et tapez le nombre'}` : `Count the ${question.objects}s above and type the number`}</p>
       </div>
       <input
         type="number"
         value={userAnswer}
         onChange={(e) => setUserAnswer(e.target.value)}
-        placeholder="Enter number here (0-10)"
+        placeholder={isFrench ? (translatedUITexts['Enter number here (0-10)'] || 'Entrez le nombre ici (0-10)') : 'Enter number here (0-10)'}
         className="number-input"
         min="0"
         max="10"
@@ -799,8 +894,8 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     <div className="drawing-container">
       <h3>{question.question}</h3>
       <div className="drawing-info">
-        <p>Click on the canvas to draw {question.count} {question.target}s</p>
-        <p>Objects drawn: {drawnObjects.length}</p>
+        <p>{isFrench ? `${translatedUITexts['Click on the canvas to draw'] || 'Cliquez sur le canevas pour dessiner'} ${question.count} ${question.target}s` : `Click on the canvas to draw ${question.count} ${question.target}s`}</p>
+        <p>{isFrench ? `${translatedUITexts['Objects drawn:'] || 'Objets dessinés:'} ${drawnObjects.length}` : `Objects drawn: ${drawnObjects.length}`}</p>
       </div>
       <canvas
         ref={canvasRef}
@@ -816,18 +911,18 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           </span>
         ))}
       </div>
-      <button onClick={clearDrawing} className="clear-btn">Clear</button>
+      <button onClick={clearDrawing} className="clear-btn">{isFrench ? (translatedUITexts['Clear'] || 'Effacer') : 'Clear'}</button>
       {question.type === 'word_problem' && (
         <div>
           <div className="input-instruction">
-            <p><strong>Enter your answer:</strong></p>
-            <p>Type the total number after solving the problem</p>
+            <p><strong>{isFrench ? (translatedUITexts['Enter your answer below:'] || 'Entrez votre réponse:') : 'Enter your answer:'}</strong></p>
+            <p>{isFrench ? 'Tapez le nombre total après avoir résolu le problème' : 'Type the total number after solving the problem'}</p>
           </div>
           <input
             type="number"
             value={userAnswer}
             onChange={(e) => setUserAnswer(e.target.value)}
-            placeholder="Enter total number (0-10)"
+            placeholder={isFrench ? (translatedUITexts['Enter total number (0-10)'] || 'Entrez le nombre total (0-10)') : 'Enter total number (0-10)'}
             className="number-input"
             min="0"
             max="10"
@@ -869,13 +964,13 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
         <h3>{question.question}</h3>
         
         <div className="matching-instruction">
-          <p><strong>Instructions:</strong> Count the {objectType}s below and click the correct number</p>
+          <p><strong>{isFrench ? (translatedUITexts['Instructions:'] || 'Instructions:') : 'Instructions:'}</strong> {isFrench ? `${translatedUITexts['Count the'] || 'Comptez les'} ${objectType}s ${translatedUITexts['s above and type the number'] || 'ci-dessous et cliquez sur le bon nombre'}` : `Count the ${objectType}s below and click the correct number`}</p>
         </div>
         
         <div className="matching-area">
           {/* Show the objects to count */}
           <div className="objects-to-count">
-            <h4>Count these {objectType}s:</h4>
+            <h4>{isFrench ? `${translatedUITexts['Count these'] || 'Comptez ces'} ${objectType}s${translatedUITexts['s:'] || ':'}` : `Count these ${objectType}s:`}</h4>
             <div className="objects-display" style={{
               display: 'flex',
               flexWrap: 'wrap',
@@ -898,7 +993,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           
           {/* Show number choices */}
           <div className="numbers-section">
-            <h4>Choose the correct number:</h4>
+            <h4>{isFrench ? (translatedUITexts['Choose the correct number:'] || 'Choisissez le bon nombre:') : 'Choose the correct number:'}</h4>
             <div className="numbers-row" style={{
               display: 'flex',
               gap: '15px',
@@ -942,7 +1037,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
       <div className="coloring-container">
         <h3>{question.question}</h3>
         <div className="coloring-instruction">
-          <p>Color exactly <strong>{targetCount}</strong> {objectType}s. Click to color/uncolor.</p>
+          <p>{isFrench ? `${translatedUITexts['Color exactly'] || 'Colorez exactement'} <strong>${targetCount}</strong> ${objectType}s. ${translatedUITexts['s. Click to color/uncolor.'] || 'Cliquez pour colorier/décolorier.'}` : `Color exactly <strong>${targetCount}</strong> ${objectType}s. Click to color/uncolor.`}</p>
         </div>
         <div className="coloring-grid">
           {Array.from({ length: totalObjects }, (_, i) => (
@@ -973,9 +1068,9 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
         </div>
         <div className="coloring-status">
           <p className={coloredObjects.length === targetCount ? 'correct' : coloredObjects.length > targetCount ? 'over-limit' : ''}>
-            Colored: {coloredObjects.length} / {targetCount}
-            {coloredObjects.length > targetCount && <span className="warning"> (Too many!)</span>}
-            {coloredObjects.length === targetCount && <span className="success"> ✓ Perfect!</span>}
+            {isFrench ? `${translatedUITexts['Colored:'] || 'Coloré:'} ${coloredObjects.length} / ${targetCount}` : `Colored: ${coloredObjects.length} / ${targetCount}`}
+            {coloredObjects.length > targetCount && <span className="warning"> {isFrench ? `(${translatedUITexts['Too many!'] || 'Trop!'})` : '(Too many!)'}</span>}
+            {coloredObjects.length === targetCount && <span className="success"> ✓ {isFrench ? (translatedUITexts['Perfect!'] || 'Parfait!') : 'Perfect!'}</span>}
           </p>
         </div>
       </div>
@@ -1038,7 +1133,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           </div>
         </div>
         <div className="comparison-choices">
-          <p>Which group has more {objectType}s?</p>
+          <p>{isFrench ? `${translatedUITexts['Which group has more'] || 'Quel groupe a plus de'} ${objectType}s${translatedUITexts['s?'] || '?'}` : `Which group has more ${objectType}s?`}</p>
           {choices.map((choice, index) => (
             <button
               key={index}
@@ -1071,7 +1166,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
             </button>
           ))}
         </div>
-        <p>Click on the item that doesn't belong with the others.</p>
+        <p>{isFrench ? (translatedUITexts['Click on the item that doesn\'t belong with the others.'] || 'Cliquez sur l\'élément qui n\'appartient pas aux autres.') : 'Click on the item that doesn\'t belong with the others.'}</p>
       </div>
     );
   };
@@ -1142,7 +1237,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           type="text"
           value={userAnswer}
           onChange={(e) => setUserAnswer(e.target.value)}
-          placeholder="Type the missing letters"
+          placeholder={isFrench ? (translatedUITexts['Type the missing letters'] || 'Tapez les lettres manquantes') : 'Type the missing letters'}
           className="word-input"
         />
       </div>
@@ -1188,11 +1283,11 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
         <div className="loading-screen">
           <div className="loading-content">
             <div className="loading-spinner"></div>
-            <h2> Preparing Numbers & Counting Quiz</h2>
+            <h2> {isFrench ? (translatedUITexts['Preparing Numbers & Counting Quiz'] || 'Préparation du Quiz de Nombres et Comptage') : 'Preparing Numbers & Counting Quiz'}</h2>
             {gptGenerating ? (
-              <p> GPT-3.5 is generating personalized questions...</p>
+              <p> {isFrench ? (translatedUITexts['GPT-3.5 is generating personalized questions...'] || 'GPT-3.5 génère des questions personnalisées...') : 'GPT-3.5 is generating personalized questions...'}</p>
             ) : (
-              <p> AI is selecting personalized questions for you...</p>
+              <p> {isFrench ? (translatedUITexts['AI is selecting personalized questions for you...'] || 'L\'IA sélectionne des questions personnalisées pour vous...') : 'AI is selecting personalized questions for you...'}</p>
             )}
             <div className="loading-progress">
               <div className="progress-bar"></div>
@@ -1212,7 +1307,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     return (
       <div className="results-screen">
         <div className="results-content">
-          <h2> Numbers & Counting Complete!</h2>
+          <h2> {isFrench ? (translatedUITexts['Numbers & Counting Complete!'] || 'Nombres et Comptage Terminé!') : 'Numbers & Counting Complete!'}</h2>
           <div className="score-display">
             <div className="score-circle">
               <span className="score-number">{score}/{questions.length}</span>
@@ -1342,7 +1437,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
 
           <div className="results-actions">
             <button onClick={() => navigateTo('dashboard')} className="back-btn">
-              🏠 Return to Home
+              🏠 {isFrench ? (translatedUITexts['Return to Home'] || 'Retour à l\'Accueil') : 'Return to Home'}
             </button>
             <button onClick={() => {
               setShowResult(false);
@@ -1353,7 +1448,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
               setAiFeedback(null);
               initializeQuiz();
             }} className="try-again-btn">
-              🤖 AI Remix Quiz
+              🤖 {isFrench ? (translatedUITexts['AI Remix Quiz'] || 'Quiz AI Remix') : 'AI Remix Quiz'}
             </button>
           </div>
         </div>
@@ -1366,10 +1461,10 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     <div className="numbers-counting-container">
       <div className="quiz-header">
         <div className="quiz-info">
-          <h2>🔢 Numbers & Counting Quiz</h2>
+          <h2>🔢 {isFrench ? (translatedUITexts['Numbers & Counting Quiz'] || 'Quiz de Nombres et Comptage') : 'Numbers & Counting Quiz'}</h2>
           <div className="quiz-meta">
             <div className="progress-info">
-              <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
+              <span>{(translatedUITexts['Question'] || 'Question')} {currentQuestionIndex + 1} {(translatedUITexts['of'] || 'of')} {questions.length}</span>
               <span className={`difficulty-badge difficulty-${aiStatus?.difficulty || 'easy'}`}>
                 {(aiStatus?.difficulty || 'easy').toUpperCase()}
               </span>
@@ -1393,56 +1488,28 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
       </div>
 
       <div className="quiz-content">
-        {renderQuestion()}
-      </div>
-
-      <div className="check-answer-section">
-        <button 
-          onClick={checkAnswer} 
-          disabled={isChecking}
-          className="check-answer-btn"
-        >
-          {isChecking ? 'Checking...' : 'Next Question'}
-        </button>
-      </div>
-    </div>
-  );
-
-  const question = getCurrentQuestion();
-  
-  // Main quiz interface
-  return (
-    <div className="numbers-counting-container">
-      <div className="quiz-header">
-        <div className="quiz-info">
-          <h2>🔢 Numbers & Counting Quiz</h2>
-          <div className="quiz-meta">
-            <div className="progress-info">
-              <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-              <span className={`difficulty-badge difficulty-${aiStatus?.difficulty || 'easy'}`}>
-                {(aiStatus?.difficulty || 'easy').toUpperCase()}
-              </span>
-            </div>
-            {aiStatus && (
-              <div className="ai-status">
-                <span className="ai-indicator" title="AI Tutor Active">
-                  🤖 AI: {aiStatus.difficulty} | Performance: {aiStatus.performance?.toFixed(0) || 0}%
-                  {aiStatus.currentStreak > 0 && ` | Streak: ${aiStatus.currentStreak}`}
-                </span>
+        <div className="question-content">
+          {(() => {
+            const question = getCurrentQuestion();
+            if (!question) return null;
+            return (
+              <div className="question-header">
+                <h3 className="question-text">{question.question}</h3>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <TTSButton 
+                    question={question.question}
+                    options={getNumbersCountingOptions(question)}
+                  />
+                  <TranslationButton 
+                    onToggle={handleTranslationToggle}
+                    isFrench={isFrench}
+                  />
+                </div>
               </div>
-            )}
-          </div>
+            );
+          })()}
+          {renderQuestion()}
         </div>
-        <div className="progress-bar">
-          <div 
-            className="progress-fill" 
-            style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
-          ></div>
-        </div>
-      </div>
-
-      <div className="quiz-content">
-        {renderQuestion()}
       </div>
 
       <div className="check-answer-section">
@@ -1451,11 +1518,12 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           disabled={isChecking}
           className="check-answer-btn"
         >
-          {isChecking ? 'Checking...' : 'Next Question'}
+          {isChecking ? (translatedUITexts['Checking...'] || 'Checking...') : (translatedUITexts['Next Question'] || 'Next Question')}
         </button>
       </div>
     </div>
   );
+
 };
 
 export default NumbersCounting;

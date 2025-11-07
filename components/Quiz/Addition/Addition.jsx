@@ -4,6 +4,9 @@ import additionQuestions from './additionQuestions';
 import { aiController } from '../../../utils/aiController';
 import { aiTutor } from '../../../utils/aiTutor';
 import './Addition.css';
+import TTSButton from '../TTSButton';
+import TranslationButton from '../TranslationButton';
+import translationService from '../../../utils/translationService';
 
 // Utility to shuffle questions
 function shuffle(array) {
@@ -28,6 +31,12 @@ const Addition = ({ topic, user, navigateTo }) => {
   const [aiStatus, setAiStatus] = useState(null);
   const [questionStartTime, setQuestionStartTime] = useState(null);
   const [aiFeedback, setAiFeedback] = useState(null);
+  
+  // Translation states
+  const [isFrench, setIsFrench] = useState(false);
+  const [translatedQuestions, setTranslatedQuestions] = useState([]);
+  const [translatedUITexts, setTranslatedUITexts] = useState({});
+  const [isTranslating, setIsTranslating] = useState(false);
 
   // Get difficulty from user performance
   const getDifficultyFromAccuracy = (acc) => {
@@ -164,6 +173,68 @@ const Addition = ({ topic, user, navigateTo }) => {
     }
   };
 
+  // Translation toggle handler
+  const handleTranslationToggle = async () => {
+    if (isTranslating) return;
+    
+    setIsTranslating(true);
+    try {
+      if (isFrench) {
+        setIsFrench(false);
+        setTranslatedQuestions([]);
+        setTranslatedUITexts({});
+      } else {
+        setIsFrench(true);
+        
+        // Translate all questions
+        const translated = await Promise.all(
+          questions.map(q => translationService.translateQuestion(q, 'fr'))
+        );
+        setTranslatedQuestions(translated);
+        
+        // Translate UI texts
+        const uiTexts = {
+          'Addition Quiz': 'Quiz d\'Addition',
+          'Question': 'Question',
+          'of': 'de',
+          'Checking...': 'Vérification...',
+          'Submit Answer': 'Soumettre la Réponse',
+          'Submit Answers': 'Soumettre les Réponses',
+          'What is the answer?': 'Quelle est la réponse?',
+          'How many in total?': 'Combien au total?',
+          'Enter your answer': 'Entrez votre réponse',
+          'Quiz Complete!': 'Quiz Terminé!',
+          'You got': 'Vous avez obtenu',
+          'out of': 'sur',
+          'questions correct!': 'questions correctes!',
+          'Excellent Work!': 'Excellent Travail!',
+          'You\'re mastering addition!': 'Vous maîtrisez l\'addition!',
+          'Good Job!': 'Bon Travail!',
+          'You\'re doing great! Keep practicing!': 'Vous vous débrouillez bien! Continuez à pratiquer!',
+          'Keep Trying!': 'Continuez!',
+          'Practice makes perfect! Try again!': 'La pratique rend parfait! Réessayez!',
+          'Back to Dashboard': 'Retour au Tableau de Bord',
+          'Preparing your addition quiz...': 'Préparation de votre quiz d\'addition...',
+          'Loading questions based on your level': 'Chargement des questions selon votre niveau'
+        };
+        
+        const translatedUI = await translationService.translateUITexts(uiTexts, 'fr');
+        setTranslatedUITexts(translatedUI);
+      }
+    } catch (error) {
+      console.error('Translation error:', error);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const getCurrentQuestion = () => {
+    if (isFrench && translatedQuestions[currentQuestionIndex]) {
+      return translatedQuestions[currentQuestionIndex];
+    }
+    return questions[currentQuestionIndex];
+  };
+
   const saveQuizSession = async (aiSessionSummary = null) => {
     if (!user?.id) return;
     
@@ -290,7 +361,8 @@ const Addition = ({ topic, user, navigateTo }) => {
   };
 
   const renderQuestion = (q, idx) => {
-    if (!q) return <div>Loading...</div>;
+    if (!q) return <div>{isFrench ? 'Chargement...' : 'Loading...'}</div>;
+    const question = getCurrentQuestion();
     
     switch (q.type) {
       case 'picture-addition':
@@ -305,7 +377,7 @@ const Addition = ({ topic, user, navigateTo }) => {
                 <span>?</span>
               </div>
             </div>
-            <div className="addition-prompt">What is the answer?</div>
+            <div className="addition-prompt">{isFrench ? (translatedUITexts['What is the answer?'] || 'Quelle est la réponse?') : 'What is the answer?'}</div>
             <input 
               type="number" 
               className="addition-input"
@@ -321,7 +393,7 @@ const Addition = ({ topic, user, navigateTo }) => {
                 disabled={selectedOption === null || isChecking} 
                 onClick={() => handleAnswer(selectedOption)}
               >
-                {isChecking ? 'Checking...' : 'Submit Answer'}
+                {isChecking ? (translatedUITexts['Checking...'] || 'Checking...') : (translatedUITexts['Submit Answer'] || 'Submit Answer')}
               </button>
             </div>
           </div>
@@ -338,7 +410,7 @@ const Addition = ({ topic, user, navigateTo }) => {
                 <span>?</span>
               </div>
             </div>
-            <div className="addition-prompt">How many in total?</div>
+            <div className="addition-prompt">{isFrench ? (translatedUITexts['How many in total?'] || 'Combien au total?') : 'How many in total?'}</div>
             <input 
               type="number" 
               className="addition-input"
@@ -354,7 +426,7 @@ const Addition = ({ topic, user, navigateTo }) => {
                 disabled={selectedOption === null || isChecking} 
                 onClick={() => handleAnswer(selectedOption)}
               >
-                {isChecking ? 'Checking...' : 'Submit Answer'}
+                {isChecking ? (translatedUITexts['Checking...'] || 'Checking...') : (translatedUITexts['Submit Answer'] || 'Submit Answer')}
               </button>
             </div>
           </div>
@@ -377,7 +449,7 @@ const Addition = ({ topic, user, navigateTo }) => {
                 disabled={selectedOption === null || isChecking} 
                 onClick={() => handleAnswer(selectedOption)}
               >
-                {isChecking ? 'Checking...' : 'Submit Answer'}
+                {isChecking ? (translatedUITexts['Checking...'] || 'Checking...') : (translatedUITexts['Submit Answer'] || 'Submit Answer')}
               </button>
             </div>
           </div>
@@ -393,7 +465,7 @@ const Addition = ({ topic, user, navigateTo }) => {
               min="0" 
               max="10" 
               onChange={e => setSelectedOption(Number(e.target.value))} 
-              placeholder="Enter your answer"
+              placeholder={isFrench ? (translatedUITexts['Enter your answer'] || 'Entrez votre réponse') : 'Enter your answer'}
             />
             <div className="quiz-actions">
               <button 
@@ -401,7 +473,7 @@ const Addition = ({ topic, user, navigateTo }) => {
                 disabled={selectedOption === null || isChecking} 
                 onClick={() => handleAnswer(selectedOption)}
               >
-                {isChecking ? 'Checking...' : 'Submit Answer'}
+                {isChecking ? (translatedUITexts['Checking...'] || 'Checking...') : (translatedUITexts['Submit Answer'] || 'Submit Answer')}
               </button>
             </div>
           </div>
@@ -438,7 +510,7 @@ const Addition = ({ topic, user, navigateTo }) => {
                 disabled={!selectedOption || selectedOption.some(v => v === null || v === undefined) || isChecking} 
                 onClick={() => handleAnswer(selectedOption)}
               >
-                {isChecking ? 'Checking...' : 'Submit Answers'}
+                {isChecking ? (translatedUITexts['Checking...'] || 'Checking...') : (translatedUITexts['Submit Answers'] || 'Submit Answers')}
               </button>
             </div>
           </div>
@@ -454,7 +526,7 @@ const Addition = ({ topic, user, navigateTo }) => {
               min="0" 
               max="10" 
               onChange={e => setSelectedOption(Number(e.target.value))} 
-              placeholder="Enter your answer"
+              placeholder={isFrench ? (translatedUITexts['Enter your answer'] || 'Entrez votre réponse') : 'Enter your answer'}
             />
             <div className="quiz-actions">
               <button 
@@ -462,7 +534,7 @@ const Addition = ({ topic, user, navigateTo }) => {
                 disabled={selectedOption === null || isChecking} 
                 onClick={() => handleAnswer(selectedOption)}
               >
-                {isChecking ? 'Checking...' : 'Submit Answer'}
+                {isChecking ? (translatedUITexts['Checking...'] || 'Checking...') : (translatedUITexts['Submit Answer'] || 'Submit Answer')}
               </button>
             </div>
           </div>
@@ -478,8 +550,8 @@ const Addition = ({ topic, user, navigateTo }) => {
         <div className="addition-loading">
           <div className="loading-spinner">🧮</div>
           <div className="loading-details">
-            Preparing your addition quiz...<br/>
-            Loading questions based on your level
+            {isFrench ? (translatedUITexts['Preparing your addition quiz...'] || 'Préparation de votre quiz d\'addition...') : 'Preparing your addition quiz...'}<br/>
+            {isFrench ? (translatedUITexts['Loading questions based on your level'] || 'Chargement des questions selon votre niveau') : 'Loading questions based on your level'}
           </div>
         </div>
       </div>
@@ -493,18 +565,18 @@ const Addition = ({ topic, user, navigateTo }) => {
       <div className="addition-container">
         <div className="addition-result">
           <div className="result-content">
-            <h2>Quiz Complete!</h2>
+            <h2>{isFrench ? (translatedUITexts['Quiz Complete!'] || 'Quiz Terminé!') : 'Quiz Complete!'}</h2>
             <div className="score-display">
               <div className="score-circle">
                 <div className="score-text">{percentage}%</div>
               </div>
             </div>
-            <p>You got {score} out of {questions.length} questions correct!</p>
+            <p>{isFrench ? `${translatedUITexts['You got'] || 'Vous avez obtenu'} ${score} ${translatedUITexts['out of'] || 'sur'} ${questions.length} ${translatedUITexts['questions correct!'] || 'questions correctes!'}` : `You got ${score} out of ${questions.length} questions correct!`}</p>
             
             <div className="encouragement-section">
               <div className={percentage >= 80 ? 'great-job' : percentage >= 60 ? 'good-job' : 'keep-trying'}>
-                <h3>{percentage >= 80 ? '🌟 Excellent Work!' : percentage >= 60 ? '👍 Good Job!' : '💪 Keep Trying!'}</h3>
-                <p>{percentage >= 80 ? 'You\'re mastering addition!' : percentage >= 60 ? 'You\'re doing great! Keep practicing!' : 'Practice makes perfect! Try again!'}</p>
+                <h3>{percentage >= 80 ? (isFrench ? '🌟 ' + (translatedUITexts['Excellent Work!'] || 'Excellent Travail!') : '🌟 Excellent Work!') : percentage >= 60 ? (isFrench ? '👍 ' + (translatedUITexts['Good Job!'] || 'Bon Travail!') : '👍 Good Job!') : (isFrench ? '💪 ' + (translatedUITexts['Keep Trying!'] || 'Continuez!') : '💪 Keep Trying!')}</h3>
+                <p>{percentage >= 80 ? (isFrench ? (translatedUITexts['You\'re mastering addition!'] || 'Vous maîtrisez l\'addition!') : 'You\'re mastering addition!') : percentage >= 60 ? (isFrench ? (translatedUITexts['You\'re doing great! Keep practicing!'] || 'Vous vous débrouillez bien! Continuez à pratiquer!') : 'You\'re doing great! Keep practicing!') : (isFrench ? (translatedUITexts['Practice makes perfect! Try again!'] || 'La pratique rend parfait! Réessayez!') : 'Practice makes perfect! Try again!')}</p>
               </div>
             </div>
             
@@ -520,7 +592,7 @@ const Addition = ({ topic, user, navigateTo }) => {
             )}
             
             <div className="result-actions">
-              <button className="btn btn-primary" onClick={() => navigateTo && navigateTo('dashboard')}>Back to Dashboard</button>
+              <button className="btn btn-primary" onClick={() => navigateTo && navigateTo('dashboard')}>{isFrench ? (translatedUITexts['Back to Dashboard'] || 'Retour au Tableau de Bord') : 'Back to Dashboard'}</button>
             </div>
           </div>
         </div>
@@ -533,10 +605,10 @@ const Addition = ({ topic, user, navigateTo }) => {
     <div className="addition-container">
       <div className="quiz-header">
         <div className="quiz-info">
-          <h2>Addition Quiz</h2>
+          <h2>{isFrench ? (translatedUITexts['Addition Quiz'] || 'Quiz d\'Addition') : 'Addition Quiz'}</h2>
           <div className="progress-info">
             <span className={`difficulty-badge difficulty-${difficulty}`}>{difficulty}</span>
-            <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
+            <span>{(translatedUITexts['Question'] || 'Question')} {currentQuestionIndex + 1} {(translatedUITexts['of'] || 'of')} {questions.length}</span>
           </div>
         </div>
         <div className="progress-bar">
@@ -546,9 +618,21 @@ const Addition = ({ topic, user, navigateTo }) => {
       </div>
       
       <div className="question-content">
-        <div className="question-text">{questions[currentQuestionIndex]?.prompt || 'Loading question...'}</div>
-        {renderQuestion(questions[currentQuestionIndex], currentQuestionIndex)}
-      </div>
+  <div className="question-header">
+    <div className="question-text">{getCurrentQuestion()?.prompt || getCurrentQuestion()?.question || (isFrench ? 'Chargement de la question...' : 'Loading question...')}</div>
+    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+      <TTSButton 
+        question={getCurrentQuestion()?.prompt || getCurrentQuestion()?.question || ''}
+        options={[]}
+      />
+      <TranslationButton 
+        onToggle={handleTranslationToggle}
+        isFrench={isFrench}
+      />
+    </div>
+  </div>
+  {renderQuestion(getCurrentQuestion(), currentQuestionIndex)}
+</div>
       
       {feedback && (
         <div className={`feedback ${feedback.type === 'correct' ? 'correct-feedback' : 'incorrect-feedback'}`}>

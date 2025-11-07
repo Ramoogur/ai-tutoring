@@ -113,7 +113,18 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
 .question-text {
+  flex: 1;
+  min-width: 200px;
   font-size: 1.4rem;
   color: #333;
   margin-bottom: 30px;

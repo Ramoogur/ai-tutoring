@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
 import { measurementQuestions, measurementAssets, mauritianCoins } from '../../../data/measurementQuestions';
+import TTSButton from '../TTSButton';
+import TranslationButton from '../TranslationButton';
+import translationService from '../../../utils/translationService';
 import './Measurement.css';
 
 const Measurement = ({ topic, user, navigateTo }) => {
@@ -20,6 +23,12 @@ const Measurement = ({ topic, user, navigateTo }) => {
   const [sortedItems, setSortedItems] = useState([]);
   const [textInput, setTextInput] = useState('');
   const [selectedItems, setSelectedItems] = useState(new Set());
+  
+  // Translation states
+  const [isFrench, setIsFrench] = useState(false);
+  const [translatedQuestions, setTranslatedQuestions] = useState([]);
+  const [translatedUITexts, setTranslatedUITexts] = useState({});
+  const [isTranslating, setIsTranslating] = useState(false);
 
   // Get difficulty from user performance
   const getDifficultyFromAccuracy = (acc) => {
@@ -638,6 +647,17 @@ const Measurement = ({ topic, user, navigateTo }) => {
     }
   };
 
+  // Helper function to extract options for TTS
+  const getMeasurementOptions = (question) => {
+    if (!question) return [];
+    if (question.options) {
+      return question.options.map(opt => 
+        typeof opt === 'object' ? (opt.text || opt.label || opt.id || '') : opt
+      );
+    }
+    return [];
+  };
+
   // Generate scene for time questions
   const generateSceneSVG = (sceneAsset, size = 200) => {
     const scene = measurementAssets[sceneAsset];
@@ -1009,7 +1029,41 @@ const Measurement = ({ topic, user, navigateTo }) => {
       </div>
 
       <div className="question-content">
-        <h3 className="question-text">{currentQuestion.prompt}</h3>
+        <div className="question-header">
+          <h3 className="question-text">{(isFrench && translatedQuestions[currentQuestionIndex]) ? (translatedQuestions[currentQuestionIndex].question || translatedQuestions[currentQuestionIndex].prompt) : (currentQuestion.question || currentQuestion.prompt)}</h3>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <TTSButton 
+              question={(isFrench && translatedQuestions[currentQuestionIndex]) ? (translatedQuestions[currentQuestionIndex].question || translatedQuestions[currentQuestionIndex].prompt) : (currentQuestion.question || currentQuestion.prompt)}
+              options={getMeasurementOptions(isFrench && translatedQuestions[currentQuestionIndex] ? translatedQuestions[currentQuestionIndex] : currentQuestion)}
+            />
+            <TranslationButton 
+              onToggle={async () => {
+                if (isTranslating) return;
+                setIsTranslating(true);
+                try {
+                  if (isFrench) {
+                    setIsFrench(false);
+                    setTranslatedQuestions([]);
+                    setTranslatedUITexts({});
+                  } else {
+                    setIsFrench(true);
+                    const translated = await Promise.all(questions.map(q => translationService.translateQuestion(q, 'fr')));
+                    setTranslatedQuestions(translated);
+                    const uiTexts = { 'Measurement Quiz': 'Quiz de Mesure', 'Question': 'Question', 'of': 'de', 'Checking...': 'Vérification...', 'Next Question': 'Question Suivante', 'Quiz Complete!': 'Quiz Terminé!', 'Back to Dashboard': 'Retour au Tableau de Bord' };
+                    setTranslatedUITexts(await translationService.translateUITexts(uiTexts, 'fr'));
+                  }
+                } catch (error) {
+                  console.error('Translation error:', error);
+                } finally {
+                  setIsTranslating(false);
+                }
+              }}
+              isFrench={isFrench}
+            />
+          </div>
+        </div>
+        
+        {/* Measurement visualization */}
         
         {/* Pick Comparison Questions */}
         {currentQuestion.type === 'pick_comparison' && (

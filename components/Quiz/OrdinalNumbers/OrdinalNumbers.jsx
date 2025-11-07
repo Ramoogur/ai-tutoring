@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
 import { ordinalNumbersQuestions, ordinalWords, ordinalSymbols, colors, keypadNumbers } from '../../../data/ordinalNumbersQuestions';
+import TTSButton from '../TTSButton';
+import TranslationButton from '../TranslationButton';
+import translationService from '../../../utils/translationService';
 import './OrdinalNumbers.css';
 
 const OrdinalNumbers = ({ topic, user, navigateTo }) => {
@@ -29,6 +32,12 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
   // AI feedback states
   const [aiFeedback, setAiFeedback] = useState(null);
   const [questionStartTime, setQuestionStartTime] = useState(null);
+  
+  // Translation states
+  const [isFrench, setIsFrench] = useState(false);
+  const [translatedQuestions, setTranslatedQuestions] = useState([]);
+  const [translatedUITexts, setTranslatedUITexts] = useState({});
+  const [isTranslating, setIsTranslating] = useState(false);
 
   // Get difficulty from user performance
   const getDifficultyFromAccuracy = (acc) => {
@@ -782,11 +791,45 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
       </div>
 
       <div className="question-container">
-        <h3 className="question-text">
-          {questions[currentQuestionIndex]?.question}
-        </h3>
-        
-        {renderQuestion()}
+        <div className="question-content">
+          <div className="question-header">
+            <h3 className="question-text">
+              {(isFrench && translatedQuestions[currentQuestionIndex]) ? translatedQuestions[currentQuestionIndex].question : (questions[currentQuestionIndex]?.question)}
+            </h3>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <TTSButton 
+                question={(isFrench && translatedQuestions[currentQuestionIndex]) ? translatedQuestions[currentQuestionIndex].question : (questions[currentQuestionIndex]?.question)}
+                options={(isFrench && translatedQuestions[currentQuestionIndex]) ? (translatedQuestions[currentQuestionIndex].options || translatedQuestions[currentQuestionIndex].items || []) : (questions[currentQuestionIndex]?.options || questions[currentQuestionIndex]?.items || [])}
+              />
+              <TranslationButton 
+                onToggle={async () => {
+                  if (isTranslating) return;
+                  setIsTranslating(true);
+                  try {
+                    if (isFrench) {
+                      setIsFrench(false);
+                      setTranslatedQuestions([]);
+                      setTranslatedUITexts({});
+                    } else {
+                      setIsFrench(true);
+                      const translated = await Promise.all(questions.map(q => translationService.translateQuestion(q, 'fr')));
+                      setTranslatedQuestions(translated);
+                      const uiTexts = { 'Ordinal Numbers Quiz': 'Quiz de Nombres Ordinaux', 'Question': 'Question', 'of': 'de', 'Checking...': 'Vérification...', 'Next Question': 'Question Suivante', 'Quiz Complete!': 'Quiz Terminé!', 'Back to Dashboard': 'Retour au Tableau de Bord' };
+                      setTranslatedUITexts(await translationService.translateUITexts(uiTexts, 'fr'));
+                    }
+                  } catch (error) {
+                    console.error('Translation error:', error);
+                  } finally {
+                    setIsTranslating(false);
+                  }
+                }}
+                isFrench={isFrench}
+              />
+            </div>
+          </div>
+          
+          {/* Ordinal number display */}
+          {renderQuestion()}
         
         {feedback && (
           <div className={`feedback ${feedback}`}>
@@ -801,6 +844,7 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
             )}
           </div>
         )}
+        </div>
       </div>
 
       <div className="quiz-actions">

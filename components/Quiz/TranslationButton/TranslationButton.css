@@ -1,0 +1,115 @@
+.translation-button-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.translation-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+
+.translation-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+}
+
+.translation-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(76, 175, 80, 0.4);
+}
+
+.translation-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.translation-button.french {
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
+}
+
+.translation-button.french:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(33, 150, 243, 0.6);
+}
+
+.translation-button.translating {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.translation-icon {
+  width: 20px;
+  height: 20px;
+  color: white;
+}
+
+.translation-label {
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+  font-weight: 600;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .translation-button {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .translation-icon {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .translation-label {
+    font-size: 12px;
+  }
+}
+
+/* Accessibility */
+.translation-button:focus {
+  outline: 3px solid rgba(76, 175, 80, 0.5);
+  outline-offset: 2px;
+}
+
+.translation-button.french:focus {
+  outline-color: rgba(33, 150, 243, 0.5);
+}
+
+/* Animation for child-friendly appeal */
+.translation-button:hover:not(:disabled) .translation-icon {
+  animation: bounce 0.6s ease;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+

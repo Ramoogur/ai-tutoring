@@ -113,7 +113,18 @@
   min-height: 400px;
 }
 
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
 .question-text {
+  flex: 1;
+  min-width: 200px;
   font-size: 24px;
   color: #333;
   text-align: center;

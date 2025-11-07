@@ -133,6 +133,25 @@
   min-height: 400px;
 }
 
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.question-text {
+  flex: 1;
+  min-width: 200px;
+  font-size: 1.4em;
+  margin-bottom: 25px;
+  color: #333;
+  text-align: center;
+  line-height: 1.4;
+}
+
 .question-container h3 {
   font-size: 1.4em;
   margin-bottom: 25px;

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
 import { moneyQuestions, mauritianCoins, coinNames, calculateCoinTotal, calculateCoinTotalFromCounts, formatMoney } from '../../../data/moneyQuestions';
+import TTSButton from '../TTSButton';
+import TranslationButton from '../TranslationButton';
+import translationService from '../../../utils/translationService';
 import './Money.css';
 
 const Money = ({ topic, user, navigateTo }) => {
@@ -25,6 +28,12 @@ const Money = ({ topic, user, navigateTo }) => {
   const [gptFeedback, setGptFeedback] = useState(null);
   const [difficultyProgression, setDifficultyProgression] = useState(null);
   const [shouldValidate, setShouldValidate] = useState(false);
+  
+  // Translation states
+  const [isFrench, setIsFrench] = useState(false);
+  const [translatedQuestions, setTranslatedQuestions] = useState([]);
+  const [translatedUITexts, setTranslatedUITexts] = useState({});
+  const [isTranslating, setIsTranslating] = useState(false);
 
   // Get difficulty from user performance
   const getDifficultyFromAccuracy = (acc) => {
@@ -446,7 +455,6 @@ const Money = ({ topic, user, navigateTo }) => {
         if (needsMultipleSelection) {
           return (
             <div className="question-container">
-              <h3>{question.prompt_en}</h3>
               <div className="coin-counters">
                 <h4>Select Coins:</h4>
                 <div className="counter-grid">
@@ -510,7 +518,6 @@ const Money = ({ topic, user, navigateTo }) => {
           // Single selection (original behavior)
           return (
             <div className="question-container">
-              <h3>{question.prompt_en}</h3>
               <div className="coins-grid">
                 {question.choices.map((coin, index) => (
                   <div key={index} onClick={() => {
@@ -528,7 +535,6 @@ const Money = ({ topic, user, navigateTo }) => {
       case 'match':
         return (
           <div className="question-container">
-            <h3>{question.prompt_en}</h3>
             <div className="matching-container">
               <div className="left-column">
                 {question.left.map((item, index) => (
@@ -580,7 +586,6 @@ const Money = ({ topic, user, navigateTo }) => {
         const currentTotal = calculateCoinTotalFromCounts(coinCounts);
         return (
           <div className="question-container">
-            <h3>{question.prompt_en}</h3>
             <div className="target-amount">
               Target: {formatMoney(targetAmount)}
             </div>
@@ -649,7 +654,6 @@ const Money = ({ topic, user, navigateTo }) => {
       case 'fill_sum':
         return (
           <div className="question-container">
-            <h3>{question.prompt_en}</h3>
             {question.choices ? (
               <div className="multiple-choice">
                 {question.choices.map((choice, index) => (
@@ -685,7 +689,6 @@ const Money = ({ topic, user, navigateTo }) => {
       case 'missing_coin':
         return (
           <div className="question-container">
-            <h3>{question.prompt_en}</h3>
             <div className="coins-grid">
               {question.choices.map((coin, index) => (
                 <div key={index} onClick={() => {
@@ -702,7 +705,6 @@ const Money = ({ topic, user, navigateTo }) => {
       case 'odd_one_out':
         return (
           <div className="question-container">
-            <h3>{question.prompt_en}</h3>
             <div className="coins-grid">
               {question.choices.map((coin, index) => (
                 <div key={index} onClick={() => {
@@ -719,7 +721,6 @@ const Money = ({ topic, user, navigateTo }) => {
       case 'name_coin':
         return (
           <div className="question-container">
-            <h3>{question.prompt_en}</h3>
             <div className="coin-display">
               {renderCoin(question.coin)}
             </div>
@@ -838,7 +839,46 @@ const Money = ({ topic, user, navigateTo }) => {
       </div>
 
       <div className="quiz-content">
-        {renderQuestion()}
+        <div className="question-content">
+          <div className="question-header">
+            <h3 className="question-text">
+              {(isFrench && translatedQuestions[currentQuestionIndex]) ? (translatedQuestions[currentQuestionIndex].question || translatedQuestions[currentQuestionIndex].prompt_en) : (questions[currentQuestionIndex]?.question || questions[currentQuestionIndex]?.prompt_en)}
+            </h3>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <TTSButton 
+                question={(isFrench && translatedQuestions[currentQuestionIndex]) ? (translatedQuestions[currentQuestionIndex].question || translatedQuestions[currentQuestionIndex].prompt_en) : (questions[currentQuestionIndex]?.question || questions[currentQuestionIndex]?.prompt_en)}
+                options={(isFrench && translatedQuestions[currentQuestionIndex]) ? (translatedQuestions[currentQuestionIndex].options || translatedQuestions[currentQuestionIndex].choices || []) : (questions[currentQuestionIndex]?.options || questions[currentQuestionIndex]?.choices || [])}
+              />
+              <TranslationButton 
+                onToggle={async () => {
+                  if (isTranslating) return;
+                  setIsTranslating(true);
+                  try {
+                    if (isFrench) {
+                      setIsFrench(false);
+                      setTranslatedQuestions([]);
+                      setTranslatedUITexts({});
+                    } else {
+                      setIsFrench(true);
+                      const translated = await Promise.all(questions.map(q => translationService.translateQuestion(q, 'fr')));
+                      setTranslatedQuestions(translated);
+                      const uiTexts = { 'Money Quiz': 'Quiz d\'Argent', 'Question': 'Question', 'of': 'de', 'Checking...': 'Vérification...', 'Next Question': 'Question Suivante', 'Quiz Complete!': 'Quiz Terminé!', 'Back to Dashboard': 'Retour au Tableau de Bord' };
+                      setTranslatedUITexts(await translationService.translateUITexts(uiTexts, 'fr'));
+                    }
+                  } catch (error) {
+                    console.error('Translation error:', error);
+                  } finally {
+                    setIsTranslating(false);
+                  }
+                }}
+                isFrench={isFrench}
+              />
+            </div>
+          </div>
+          
+          {/* Money/coin display */}
+          {renderQuestion()}
+        </div>
         
         {feedback && (
           <div className={`feedback ${feedback}`}>
