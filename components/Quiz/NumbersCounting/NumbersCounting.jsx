@@ -202,14 +202,16 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
   // Get student performance profile for adaptive questions
   const getStudentProfile = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('StudentTopicStats')
         .select('*')
         .eq('student_id', user.id)
         .eq('topic_id', 1)
-        .single();
-      
-      if (data) {
+        .maybeSingle();
+
+      if (error) {
+        console.log('No previous performance data found');
+      } else if (data) {
         return {
           tracingAccuracy: data.tracing_accuracy || 0.5,
           countingAccuracy: data.counting_accuracy || 0.5,

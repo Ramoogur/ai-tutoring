@@ -57,7 +57,7 @@ const Measurement = ({ topic, user, navigateTo }) => {
           .select('current_difficulty')
           .eq('student_id', user.id)
           .eq('topic_id', topic.id)
-          .single();
+          .maybeSingle();
         
         if (!error && studentStats?.current_difficulty) {
           savedDifficulty = studentStats.current_difficulty;
@@ -875,7 +875,7 @@ const Measurement = ({ topic, user, navigateTo }) => {
         .select('*')
         .eq('student_id', user.id)
         .eq('topic_id', topic.id)
-        .single();
+        .maybeSingle();
       
       // Update StudentTopicStats with proper data preservation
       const statsData = {

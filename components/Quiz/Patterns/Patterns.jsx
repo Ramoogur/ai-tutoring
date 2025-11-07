@@ -482,9 +482,9 @@ const Patterns = ({ topic, user, navigateTo }) => {
         .select('*')
         .eq('student_id', user.id)
         .eq('topic_id', topic.id)
-        .single();
+        .maybeSingle();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
+      if (fetchError) {
         console.error('Error fetching existing stats:', fetchError);
       }
         

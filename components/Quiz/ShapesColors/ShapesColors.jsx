@@ -81,7 +81,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
           .select('current_difficulty')
           .eq('student_id', user.id)
           .eq('topic_id', topic.id)
-          .single();
+          .maybeSingle();
         
         if (studentStats?.current_difficulty) {
           savedDifficulty = studentStats.current_difficulty;
