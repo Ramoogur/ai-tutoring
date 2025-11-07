@@ -6,6 +6,7 @@ import questionService from './questionService';
 import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
+import ModernFeedback from '../ModernFeedback';
 import './NumbersCounting.css';
 
 // Static data for rendering (no longer importing from external file)
@@ -60,6 +61,8 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
   const [aiStatus, setAiStatus] = useState(null);
   const [questionStartTime, setQuestionStartTime] = useState(null);
   const [aiFeedback, setAiFeedback] = useState(null);
+  const [totalTimeSpent, setTotalTimeSpent] = useState(0);
+  const [questionDetails, setQuestionDetails] = useState([]);
   
   // GPT integration states
   const [useGPTQuestions, setUseGPTQuestions] = useState(true);
@@ -596,6 +599,13 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     
     setAnswerHistory(prev => [...prev, answerRecord]);
     
+    // Track for ModernFeedback component
+    setQuestionDetails(prev => [...prev, {
+      questionType: question.type,
+      correct: isCorrect,
+      timeSpent: Date.now() - questionStartTime
+    }]);
+    
     // AI Analysis and Feedback (using standard parameters to avoid breaking)
     const aiAnalysisResult = aiController.processAnswer(question, isCorrect, userResponse);
     
@@ -690,6 +700,8 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
   const finishQuiz = async () => {
     setShowResult(true);
     const accuracy = score / questions.length;
+    const totalTime = Math.floor((Date.now() - questionStartTime) / 1000);
+    setTotalTimeSpent(totalTime);
     
     // Complete AI session and get comprehensive feedback
     let aiSessionSummary = aiController.completeQuizSession();
@@ -1305,156 +1317,40 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
 
   // Results screen
   if (showResult) {
-    const accuracy = (score / questions.length) * 100;
+    // Get next difficulty
+    const currentAccuracy = score / questions.length;
+    let nextDifficulty = difficulty;
+    let difficultyChanged = false;
+    
+    if (currentAccuracy >= 0.8 && difficulty === 'easy') {
+      nextDifficulty = 'medium';
+      difficultyChanged = true;
+    } else if (currentAccuracy >= 0.8 && difficulty === 'medium') {
+      nextDifficulty = 'hard';
+      difficultyChanged = true;
+    } else if (currentAccuracy < 0.6 && difficulty === 'hard') {
+      nextDifficulty = 'medium';
+      difficultyChanged = true;
+    } else if (currentAccuracy < 0.6 && difficulty === 'medium') {
+      nextDifficulty = 'easy';
+      difficultyChanged = true;
+    }
+    
     return (
-      <div className="results-screen">
-        <div className="results-content">
-          <h2> {isFrench ? (translatedUITexts['Numbers & Counting Complete!'] || 'Nombres et Comptage Terminé!') : 'Numbers & Counting Complete!'}</h2>
-          <div className="score-display">
-            <div className="score-circle">
-              <span className="score-number">{score}/{questions.length}</span>
-              <span className="score-percentage">{accuracy.toFixed(0)}%</span>
-            </div>
-          </div>
-
-          {aiFeedback && (
-            <div className="ai-session-summary">
-              <h3>🤖 AI Tutor Analysis</h3>
-              
-              {aiStatus && (
-                <div className="ai-analytics-grid">
-                  <div className="ai-metric">
-                    <span className="ai-metric-value">{aiStatus.difficulty}</span>
-                    <div className="ai-metric-label">Final Difficulty</div>
-                  </div>
-                  <div className="ai-metric">
-                    <span className="ai-metric-value">{aiStatus.performance.toFixed(1)}%</span>
-                    <div className="ai-metric-label">AI Performance</div>
-                  </div>
-                  <div className="ai-metric">
-                    <span className="ai-metric-value">{aiStatus.currentStreak}</span>
-                    <div className="ai-metric-label">Current Streak</div>
-                  </div>
-                  <div className="ai-metric">
-                    <span className="ai-metric-value">{aiStatus.questionsCompleted}</span>
-                    <div className="ai-metric-label">Total Questions</div>
-                  </div>
-                </div>
-              )}
-              
-              {aiFeedback.encouragement && (
-                <div className="ai-encouragement-section">
-                  <h4>🎆 Encouragement</h4>
-                  <p className="ai-encouragement">{aiFeedback.encouragement}</p>
-                </div>
-              )}
-              
-              {aiFeedback.insights && aiFeedback.insights.length > 0 && (
-                <div className="ai-insights-section">
-                  <h4>💡 Learning Insights</h4>
-                  <div className="ai-insights">
-                    {aiFeedback.insights.map((insight, idx) => (
-                      <div key={idx} className="insight-item">{insight}</div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {aiFeedback.recommendations && aiFeedback.recommendations.length > 0 && (
-                <div className="ai-recommendations-section">
-                  <h4>🎯 Next Steps</h4>
-                  <div className="ai-recommendations">
-                    <ul>
-                      {aiFeedback.recommendations.map((rec, idx) => (
-                        <li key={idx}>{rec}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Error Analysis Section */}
-          {answerHistory.length > 0 && (
-            <div className="error-analysis-section">
-              <h3>📊 Learning Analysis</h3>
-              {(() => {
-                const errorAnalysis = analyzeErrorPatterns(answerHistory);
-                const incorrectAnswers = answerHistory.filter(a => !a.isCorrect);
-                
-                return (
-                  <div className="analysis-details">
-                    <div className="score-breakdown">
-                      <p><strong>Correct:</strong> {score}/{questions.length} ({Math.round(accuracy)}%)</p>
-                      <p><strong>Incorrect:</strong> {incorrectAnswers.length}/{questions.length}</p>
-                    </div>
-                    
-                    {incorrectAnswers.length > 0 && (
-                      <div className="mistakes-review">
-                        <h4>🔍 Let's Review Your Mistakes:</h4>
-                        {incorrectAnswers.map((answer, idx) => (
-                          <div key={idx} className="mistake-item">
-                            <p><strong>Question {idx + 1}:</strong> {answer.question}</p>
-                            <p><strong>Your Answer:</strong> {answer.userResponse}</p>
-                            <p><strong>Correct Answer:</strong> {answer.correctAnswer}</p>
-                            <p className="mistake-feedback"><strong>Help:</strong> {answer.detailedFeedback}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {errorAnalysis.commonErrorTypes.length > 0 && (
-                      <div className="error-patterns">
-                        <h4>📈 Areas to Focus On:</h4>
-                        {errorAnalysis.commonErrorTypes.map(([errorType, count], idx) => (
-                          <p key={idx}>• {errorType.replace('_', ' ')}: {count} time{count > 1 ? 's' : ''}</p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          <div className="encouragement-message">
-            {accuracy >= 80 ? (
-              <div className="excellent-feedback">
-                <h3>🌟 Excellent Work!</h3>
-                <p>You're really good with numbers and counting!</p>
-              </div>
-            ) : accuracy >= 60 ? (
-              <div className="good-feedback">
-                <h3>👍 Good Job!</h3>
-                <p>Keep practicing and you'll get even better!</p>
-              </div>
-            ) : (
-              <div className="encouragement-feedback">
-                <h3>🌈 Keep Learning!</h3>
-                <p>Every mistake helps you learn. Try again!</p>
-              </div>
-            )}
-          </div>
-
-          <div className="results-actions">
-            <button onClick={() => navigateTo('dashboard')} className="back-btn">
-              🏠 {isFrench ? (translatedUITexts['Return to Home'] || 'Retour à l\'Accueil') : 'Return to Home'}
-            </button>
-            <button onClick={() => {
-              setShowResult(false);
-              setCurrentQuestionIndex(0);
-              setScore(0);
-              resetAnswerStates();
-              setFeedback(null);
-              setAiFeedback(null);
-              initializeQuiz();
-            }} className="try-again-btn">
-              🤖 {isFrench ? (translatedUITexts['AI Remix Quiz'] || 'Quiz AI Remix') : 'AI Remix Quiz'}
-            </button>
-          </div>
-        </div>
-      </div>
+      <ModernFeedback
+        topicName="Numbers & Counting"
+        topicIcon="🔢"
+        score={score}
+        totalQuestions={questions.length}
+        difficulty={difficulty}
+        nextDifficulty={nextDifficulty}
+        difficultyChanged={difficultyChanged}
+        timeSpent={totalTimeSpent}
+        questionDetails={questionDetails}
+        studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
+        onBackToDashboard={() => navigateTo('dashboard')}
+        onTryAgain={() => window.location.reload()}
+      />
     );
   }
 

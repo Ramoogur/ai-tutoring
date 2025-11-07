@@ -4,6 +4,7 @@ import { measurementQuestions, measurementAssets, mauritianCoins } from '../../.
 import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
+import ModernFeedback from '../ModernFeedback';
 import './Measurement.css';
 
 const Measurement = ({ topic, user, navigateTo }) => {
@@ -29,6 +30,11 @@ const Measurement = ({ topic, user, navigateTo }) => {
   const [translatedQuestions, setTranslatedQuestions] = useState([]);
   const [translatedUITexts, setTranslatedUITexts] = useState({});
   const [isTranslating, setIsTranslating] = useState(false);
+  
+  // Tracking for ModernFeedback
+  const [questionDetails, setQuestionDetails] = useState([]);
+  const [totalTimeSpent, setTotalTimeSpent] = useState(0);
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
 
   // Get difficulty from user performance
   const getDifficultyFromAccuracy = (acc) => {
@@ -47,6 +53,8 @@ const Measurement = ({ topic, user, navigateTo }) => {
       setScore(0);
       setShowResult(false);
       setFeedback(null);
+      setQuestionDetails([]);
+      setQuestionStartTime(Date.now());
       resetQuestionState();
       
       // Load current difficulty from database
@@ -824,6 +832,14 @@ const Measurement = ({ topic, user, navigateTo }) => {
         isCorrect = false;
     }
 
+    // Track question details
+    const timeSpent = Date.now() - questionStartTime;
+    setQuestionDetails(prev => [...prev, {
+      questionType: currentQuestion.type,
+      correct: isCorrect,
+      timeSpent: timeSpent
+    }]);
+    
     if (isCorrect) {
       setScore(score + 1);
       setFeedback({ isCorrect: true, message: '🎉 Excellent! Well done!' });
@@ -834,6 +850,7 @@ const Measurement = ({ topic, user, navigateTo }) => {
     setTimeout(() => {
       if (currentQuestionIndex < questions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
+        setQuestionStartTime(Date.now());
         resetQuestionState();
       } else {
         finishQuiz();
@@ -855,6 +872,8 @@ const Measurement = ({ topic, user, navigateTo }) => {
   const finishQuiz = async () => {
     setShowResult(true);
     const accuracy = score / questions.length;
+    const totalTime = Math.floor((Date.now() - (questionStartTime - (questionDetails.reduce((sum, q) => sum + q.timeSpent, 0)))) / 1000);
+    setTotalTimeSpent(totalTime);
     
     // Calculate next difficulty based on performance
     let nextDifficulty = difficulty;
@@ -951,58 +970,40 @@ const Measurement = ({ topic, user, navigateTo }) => {
   }
 
   if (showResult) {
-    const percentage = Math.round((score / questions.length) * 100);
+    // Calculate next difficulty
+    const currentAccuracy = score / questions.length;
+    let nextDifficulty = difficulty;
+    let difficultyChanged = false;
+    
+    if (currentAccuracy >= 0.8 && difficulty === 'easy') {
+      nextDifficulty = 'medium';
+      difficultyChanged = true;
+    } else if (currentAccuracy >= 0.8 && difficulty === 'medium') {
+      nextDifficulty = 'hard';
+      difficultyChanged = true;
+    } else if (currentAccuracy < 0.6 && difficulty === 'hard') {
+      nextDifficulty = 'medium';
+      difficultyChanged = true;
+    } else if (currentAccuracy < 0.6 && difficulty === 'medium') {
+      nextDifficulty = 'easy';
+      difficultyChanged = true;
+    }
     
     return (
-      <div className="measurement-result">
-        <div className="result-content">
-          <h2>🎓 Measurement & Comparison Complete!</h2>
-          
-          <div className="basic-results">
-            <div className="score-display">
-              <div className="score-circle">
-                <span className="score-text">{percentage}%</span>
-              </div>
-            </div>
-            <p><strong>Score:</strong> {score} out of {questions.length} questions correct!</p>
-            <p><strong>Difficulty:</strong> {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</p>
-          </div>
-          
-          <div className="encouragement-section">
-            {percentage >= 80 ? (
-              <div className="great-job">
-                <h3>🌟 Outstanding work!</h3>
-                <p>You have excellent measurement skills!</p>
-              </div>
-            ) : percentage >= 60 ? (
-              <div className="good-job">
-                <h3>👍 Good job!</h3>
-                <p>You're learning well! Keep practicing to improve even more.</p>
-              </div>
-            ) : (
-              <div className="keep-trying">
-                <h3>💪 Keep trying!</h3>
-                <p>Practice makes perfect. You're on the right track!</p>
-              </div>
-            )}
-          </div>
-          
-          <div className="result-actions">
-            <button 
-              className="btn btn-primary" 
-              onClick={() => navigateTo('dashboard')}
-            >
-              🏠 Back to Home
-            </button>
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => window.location.reload()}
-            >
-              🔄 Try Again
-            </button>
-          </div>
-        </div>
-      </div>
+      <ModernFeedback
+        topicName="Measurement & Comparison"
+        topicIcon="📏"
+        score={score}
+        totalQuestions={questions.length}
+        difficulty={difficulty}
+        nextDifficulty={nextDifficulty}
+        difficultyChanged={difficultyChanged}
+        timeSpent={totalTimeSpent}
+        questionDetails={questionDetails}
+        studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
+        onBackToDashboard={() => navigateTo('dashboard')}
+        onTryAgain={() => window.location.reload()}
+      />
     );
   }
 

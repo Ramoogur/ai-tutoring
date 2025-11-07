@@ -7,6 +7,7 @@ import './Addition.css';
 import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
+import ModernFeedback from '../ModernFeedback';
 
 // Utility to shuffle questions
 function shuffle(array) {
@@ -31,6 +32,8 @@ const Addition = ({ topic, user, navigateTo }) => {
   const [aiStatus, setAiStatus] = useState(null);
   const [questionStartTime, setQuestionStartTime] = useState(null);
   const [aiFeedback, setAiFeedback] = useState(null);
+  const [totalTimeSpent, setTotalTimeSpent] = useState(0);
+  const [questionDetails, setQuestionDetails] = useState([]);
   
   // Translation states
   const [isFrench, setIsFrench] = useState(false);
@@ -104,6 +107,13 @@ const Addition = ({ topic, user, navigateTo }) => {
     const isCorrect = checkAnswer(currentQuestion, answer);
     const responseTime = Date.now() - questionStartTime;
     
+    // Track question details
+    setQuestionDetails(prev => [...prev, {
+      questionType: currentQuestion.type,
+      correct: isCorrect,
+      timeSpent: responseTime
+    }]);
+    
     // Record answer with AI if available
     if (user?.id && aiTutor && typeof aiTutor.analyzeResponse === 'function') {
       try {
@@ -143,6 +153,8 @@ const Addition = ({ topic, user, navigateTo }) => {
   const finishQuiz = async () => {
     try {
       const accuracy = score / questions.length;
+      const totalTime = Math.floor((Date.now() - questionStartTime) / 1000);
+      setTotalTimeSpent(totalTime);
       
       // Complete AI session and get comprehensive feedback
       let aiSessionSummary = null;
@@ -560,43 +572,40 @@ const Addition = ({ topic, user, navigateTo }) => {
 
   // Results and feedback
   if (showResult) {
-    const percentage = Math.round((score / questions.length) * 100);
+    // Get next difficulty
+    const currentAccuracy = score / questions.length;
+    let nextDifficulty = difficulty;
+    let difficultyChanged = false;
+    
+    if (currentAccuracy >= 0.8 && difficulty === 'easy') {
+      nextDifficulty = 'medium';
+      difficultyChanged = true;
+    } else if (currentAccuracy >= 0.8 && difficulty === 'medium') {
+      nextDifficulty = 'hard';
+      difficultyChanged = true;
+    } else if (currentAccuracy < 0.6 && difficulty === 'hard') {
+      nextDifficulty = 'medium';
+      difficultyChanged = true;
+    } else if (currentAccuracy < 0.6 && difficulty === 'medium') {
+      nextDifficulty = 'easy';
+      difficultyChanged = true;
+    }
+    
     return (
-      <div className="addition-container">
-        <div className="addition-result">
-          <div className="result-content">
-            <h2>{isFrench ? (translatedUITexts['Quiz Complete!'] || 'Quiz Terminé!') : 'Quiz Complete!'}</h2>
-            <div className="score-display">
-              <div className="score-circle">
-                <div className="score-text">{percentage}%</div>
-              </div>
-            </div>
-            <p>{isFrench ? `${translatedUITexts['You got'] || 'Vous avez obtenu'} ${score} ${translatedUITexts['out of'] || 'sur'} ${questions.length} ${translatedUITexts['questions correct!'] || 'questions correctes!'}` : `You got ${score} out of ${questions.length} questions correct!`}</p>
-            
-            <div className="encouragement-section">
-              <div className={percentage >= 80 ? 'great-job' : percentage >= 60 ? 'good-job' : 'keep-trying'}>
-                <h3>{percentage >= 80 ? (isFrench ? '🌟 ' + (translatedUITexts['Excellent Work!'] || 'Excellent Travail!') : '🌟 Excellent Work!') : percentage >= 60 ? (isFrench ? '👍 ' + (translatedUITexts['Good Job!'] || 'Bon Travail!') : '👍 Good Job!') : (isFrench ? '💪 ' + (translatedUITexts['Keep Trying!'] || 'Continuez!') : '💪 Keep Trying!')}</h3>
-                <p>{percentage >= 80 ? (isFrench ? (translatedUITexts['You\'re mastering addition!'] || 'Vous maîtrisez l\'addition!') : 'You\'re mastering addition!') : percentage >= 60 ? (isFrench ? (translatedUITexts['You\'re doing great! Keep practicing!'] || 'Vous vous débrouillez bien! Continuez à pratiquer!') : 'You\'re doing great! Keep practicing!') : (isFrench ? (translatedUITexts['Practice makes perfect! Try again!'] || 'La pratique rend parfait! Réessayez!') : 'Practice makes perfect! Try again!')}</p>
-              </div>
-            </div>
-            
-            {aiFeedback && (
-              <div className="ai-feedback">
-                <h3>AI Tutor Feedback:</h3>
-                {aiFeedback.encouragement && <p><strong>Encouragement:</strong> {aiFeedback.encouragement}</p>}
-                {aiFeedback.insights && <p><strong>Insights:</strong> {aiFeedback.insights}</p>}
-                {aiFeedback.recommendations && <p><strong>Recommendations:</strong> {aiFeedback.recommendations}</p>}
-                {aiFeedback.nextSteps && <p><strong>Next Steps:</strong> {aiFeedback.nextSteps}</p>}
-                {aiFeedback.achievements && <p><strong>Achievements:</strong> {aiFeedback.achievements}</p>}
-              </div>
-            )}
-            
-            <div className="result-actions">
-              <button className="btn btn-primary" onClick={() => navigateTo && navigateTo('dashboard')}>{isFrench ? (translatedUITexts['Back to Dashboard'] || 'Retour au Tableau de Bord') : 'Back to Dashboard'}</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ModernFeedback
+        topicName="Addition"
+        topicIcon="➕"
+        score={score}
+        totalQuestions={questions.length}
+        difficulty={difficulty}
+        nextDifficulty={nextDifficulty}
+        difficultyChanged={difficultyChanged}
+        timeSpent={totalTimeSpent}
+        questionDetails={questionDetails}
+        studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
+        onBackToDashboard={() => navigateTo && navigateTo('dashboard')}
+        onTryAgain={() => window.location.reload()}
+      />
     );
   }
 

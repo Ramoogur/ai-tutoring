@@ -4,6 +4,7 @@ import { moneyQuestions, mauritianCoins, coinNames, calculateCoinTotal, calculat
 import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
+import ModernFeedback from '../ModernFeedback';
 import './Money.css';
 
 const Money = ({ topic, user, navigateTo }) => {
@@ -34,6 +35,10 @@ const Money = ({ topic, user, navigateTo }) => {
   const [translatedQuestions, setTranslatedQuestions] = useState([]);
   const [translatedUITexts, setTranslatedUITexts] = useState({});
   const [isTranslating, setIsTranslating] = useState(false);
+  
+  // Tracking for ModernFeedback
+  const [questionDetails, setQuestionDetails] = useState([]);
+  const [totalTimeSpent, setTotalTimeSpent] = useState(0);
 
   // Get difficulty from user performance
   const getDifficultyFromAccuracy = (acc) => {
@@ -231,6 +236,14 @@ const Money = ({ topic, user, navigateTo }) => {
     const question = questions[currentQuestionIndex];
     const isCorrect = await validateAnswer(question);
     
+    // Track question details for ModernFeedback
+    const timeSpent = Date.now() - questionStartTime;
+    setQuestionDetails(prev => [...prev, {
+      questionType: question.type,
+      correct: isCorrect,
+      timeSpent: timeSpent
+    }]);
+    
     if (isCorrect) {
       setScore(score + 1);
       setFeedback('correct');
@@ -354,6 +367,8 @@ const Money = ({ topic, user, navigateTo }) => {
       const accuracy = score / questions.length;
       const nextDifficulty = calculateNextSessionDifficulty(difficulty, accuracy);
       const progressionReason = getDifficultyProgressionReason(difficulty, nextDifficulty, accuracy);
+      const totalTime = Math.floor(questionDetails.reduce((sum, q) => sum + q.timeSpent, 0) / 1000);
+      setTotalTimeSpent(totalTime);
       
       const sessionData = {
         student_id: user.id,
@@ -762,61 +777,26 @@ const Money = ({ topic, user, navigateTo }) => {
   }
 
   if (showResult) {
-    const accuracy = (score / questions.length) * 100;
+    // Calculate next difficulty
+    const currentAccuracy = score / questions.length;
+    const nextDifficulty = calculateNextSessionDifficulty(difficulty, currentAccuracy);
+    const difficultyChanged = difficulty !== nextDifficulty;
+    
     return (
-      <div className="money-quiz results">
-        <div className="results-container">
-          <h2>Quiz Complete!</h2>
-          <div className="score-display">
-            <div className="score-circle">
-              <span className="score-number">{score}</span>
-              <span className="score-total">/ {questions.length}</span>
-            </div>
-            <div className="accuracy">{Math.round(accuracy)}% Correct</div>
-          </div>
-          
-          <div className="encouragement">
-            {accuracy >= 80 && <p className="excellent">Excellent work with money! 🏆</p>}
-            {accuracy >= 60 && accuracy < 80 && <p className="good">Good job learning about coins! 👍</p>}
-            {accuracy < 60 && <p className="encourage">Keep practicing with money! 💪</p>}
-          </div>
-
-          {difficultyProgression && (
-            <div className="difficulty-progression">
-              <h3>Difficulty Progression</h3>
-              <div className="progression-info">
-                <div className="current-level">
-                  <span className="label">Current Level:</span>
-                  <span className={`level ${difficultyProgression.current}`}>
-                    {difficultyProgression.current.toUpperCase()}
-                  </span>
-                </div>
-                <div className="progression-arrow">
-                  {difficultyProgression.current !== difficultyProgression.next ? '→' : '='}
-                </div>
-                <div className="next-level">
-                  <span className="label">Next Session:</span>
-                  <span className={`level ${difficultyProgression.next}`}>
-                    {difficultyProgression.next.toUpperCase()}
-                  </span>
-                </div>
-              </div>
-              <div className="progression-reason">
-                {difficultyProgression.reason}
-              </div>
-            </div>
-          )}
-
-          <div className="result-actions">
-            <button onClick={() => navigateTo('dashboard')} className="dashboard-btn">
-              Back to Dashboard
-            </button>
-            <button onClick={() => window.location.reload()} className="retry-btn">
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
+      <ModernFeedback
+        topicName="Money & Coins"
+        topicIcon="🪙"
+        score={score}
+        totalQuestions={questions.length}
+        difficulty={difficulty}
+        nextDifficulty={nextDifficulty}
+        difficultyChanged={difficultyChanged}
+        timeSpent={totalTimeSpent}
+        questionDetails={questionDetails}
+        studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
+        onBackToDashboard={() => navigateTo('dashboard')}
+        onTryAgain={() => window.location.reload()}
+      />
     );
   }
 

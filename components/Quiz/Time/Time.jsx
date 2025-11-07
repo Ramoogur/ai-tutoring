@@ -6,6 +6,7 @@ import { aiTutor } from '../../../utils/aiTutor';
 import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
+import ModernFeedback from '../ModernFeedback';
 import './Time.css';
 
 const Time = ({ topic, user, navigateTo }) => {
@@ -39,6 +40,10 @@ const Time = ({ topic, user, navigateTo }) => {
   const [translatedQuestions, setTranslatedQuestions] = useState([]);
   const [translatedUITexts, setTranslatedUITexts] = useState({});
   const [isTranslating, setIsTranslating] = useState(false);
+  
+  // Tracking for ModernFeedback
+  const [questionDetails, setQuestionDetails] = useState([]);
+  const [totalTimeSpent, setTotalTimeSpent] = useState(0);
 
   // Normalize AI difficulty names to quiz difficulty names
   const normalizeDifficultyName = (aiDifficulty) => {
@@ -726,6 +731,14 @@ const Time = ({ topic, user, navigateTo }) => {
         isCorrect = false;
     }
 
+    // Track question details for ModernFeedback
+    const timeSpent = Date.now() - questionStartTime;
+    setQuestionDetails(prev => [...prev, {
+      questionType: currentQuestion.type,
+      correct: isCorrect,
+      timeSpent: timeSpent
+    }]);
+    
     setFeedback({ message: feedbackMessage, isCorrect });
     setScore(prevScore => isCorrect ? prevScore + 1 : prevScore);
     setSessionData(prev => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
@@ -793,6 +806,9 @@ const Time = ({ topic, user, navigateTo }) => {
   };
 
   const finishQuiz = async () => {
+    const totalTime = Math.floor(questionDetails.reduce((sum, q) => sum + q.timeSpent, 0) / 1000);
+    setTotalTimeSpent(totalTime);
+    
     // Complete the quiz session with AI analysis
     const sessionSummary = await aiController.completeQuizSession({
       totalQuestions: questions.length,
@@ -949,99 +965,27 @@ const Time = ({ topic, user, navigateTo }) => {
   }
 
   if (showResult) {
-    const percentage = Math.round((score / questions.length) * 100);
-    let encouragement = '';
-    let scoreClass = '';
+    // Calculate next difficulty
+    const currentAccuracy = score / questions.length;
+    const nextDifficulty = aiFeedback?.difficultyProgression?.nextLevel || difficulty;
+    const difficultyChanged = nextDifficulty !== difficulty;
     
-    if (percentage >= 80) {
-      encouragement = 'Excellent work! You really understand time concepts! ⭐';
-      scoreClass = 'excellent-score';
-    } else if (percentage >= 60) {
-      encouragement = 'Good job! You\'re learning about time well! 👍';
-      scoreClass = 'good-score';
-    } else {
-      encouragement = 'Keep practicing! You\'re getting better at understanding time! 💪';
-      scoreClass = 'needs-practice';
-    }
-
     return (
-      <div className="time-quiz-container">
-        <div className="time-quiz-result">
-          <div className="result-content">
-            <h2>Quiz Complete! 🎉</h2>
-            <div className="score-display">
-              <div className="score-circle">
-                <span className="score-text">{score}/{questions.length}</span>
-              </div>
-            </div>
-            <div className={`results-encouragement ${scoreClass}`}>
-              {encouragement}
-            </div>
-            
-            {/* Difficulty Progression Display */}
-            {aiFeedback?.difficultyProgression && (
-              <div className="difficulty-progression-section">
-                <h3>📈 Your Progress</h3>
-                <div className="progression-display">
-                  <div className="current-level">
-                    <span className="level-label">Current Level:</span>
-                    <span className={`level-badge level-${aiFeedback.difficultyProgression.currentLevel}`}>
-                      {aiFeedback.difficultyProgression.currentLevel.toUpperCase()}
-                    </span>
-                  </div>
-                  
-                  <div className="accuracy-display">
-                    <span className="accuracy-label">Session Accuracy:</span>
-                    <span className="accuracy-value">
-                      {Math.round(aiFeedback.difficultyProgression.sessionAccuracy * 100)}%
-                    </span>
-                  </div>
-                  
-                  <div className="progression-arrow">
-                    {aiFeedback.difficultyProgression.changed ? '⬆️' : '➡️'}
-                  </div>
-                  
-                  <div className="next-level">
-                    <span className="level-label">Next Level:</span>
-                    <span className={`level-badge level-${aiFeedback.difficultyProgression.nextLevel}`}>
-                      {aiFeedback.difficultyProgression.nextLevel.toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="progression-reason">
-                  <p>{aiFeedback.difficultyProgression.reason}</p>
-                </div>
-              </div>
-            )}
-            
-            {/* AI Feedback Display */}
-            {aiFeedback?.sessionSummary && (
-              <div className="ai-session-summary">
-                <h3>🧠 AI Tutor Insights</h3>
-                {aiFeedback.sessionSummary.insights && aiFeedback.sessionSummary.insights.length > 0 && (
-                  <div className="ai-insights">
-                    {aiFeedback.sessionSummary.insights.map((insight, idx) => (
-                      <p key={idx} className="insight-item">💡 {insight}</p>
-                    ))}
-                  </div>
-                )}
-                {aiFeedback.sessionSummary.recommendations && (
-                  <div className="ai-recommendations">
-                    <p className="recommendation">🎯 {aiFeedback.sessionSummary.recommendations}</p>
-                  </div>
-                )}
-              </div>
-            )}
-            
-            <div className="result-actions">
-              <button className="btn btn-primary" onClick={() => navigateTo('topics')}>
-                Back to Topics
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ModernFeedback
+        topicName="Time"
+        topicIcon="⏰"
+        score={score}
+        totalQuestions={questions.length}
+        difficulty={difficulty}
+        nextDifficulty={nextDifficulty}
+        difficultyChanged={difficultyChanged}
+        timeSpent={totalTimeSpent}
+        questionDetails={questionDetails}
+        studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
+        onBackToDashboard={() => navigateTo('topics')}
+        onTryAgain={() => window.location.reload()}
+        sessionData={aiFeedback?.sessionSummary || {}}
+      />
     );
   }
 

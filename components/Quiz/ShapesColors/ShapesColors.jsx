@@ -6,6 +6,7 @@ import { aiTutor } from '../../../utils/aiTutor';
 import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
+import ModernFeedback from '../ModernFeedback';
 import './ShapesColors.css';
 
 const ShapesColors = ({ topic, user, navigateTo }) => {
@@ -35,6 +36,10 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
   const [translatedQuestions, setTranslatedQuestions] = useState([]);
   const [translatedUITexts, setTranslatedUITexts] = useState({});
   const [isTranslating, setIsTranslating] = useState(false);
+  
+  // Tracking for ModernFeedback
+  const [questionDetails, setQuestionDetails] = useState([]);
+  const [totalTimeSpent, setTotalTimeSpent] = useState(0);
   
   const canvasRef = useRef(null);
   const tracingRef = useRef(null);
@@ -494,6 +499,14 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
       setDifficulty(aiAnalysisResult.newDifficulty.toLowerCase());
     }
 
+    // Track question details for ModernFeedback
+    const timeSpent = Date.now() - questionStartTime;
+    setQuestionDetails(prev => [...prev, {
+      questionType: currentQuestion.type,
+      correct: isCorrect,
+      timeSpent: timeSpent
+    }]);
+    
     // Set feedback with AI enhancement
     const feedbackMessage = aiAnalysisResult ? 
       aiAnalysisResult.aiFeedback.message : 
@@ -539,6 +552,8 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
   const finishQuiz = async () => {
     setShowResult(true);
     const accuracy = score / questions.length;
+    const totalTime = Math.floor(questionDetails.reduce((sum, q) => sum + q.timeSpent, 0) / 1000);
+    setTotalTimeSpent(totalTime);
     
     // Complete AI session and get comprehensive feedback
     let aiSessionSummary = aiController.completeQuizSession();
@@ -632,185 +647,27 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
   }
 
   if (showResult) {
-    const percentage = Math.round((score / questions.length) * 100);
+    // Calculate next difficulty
+    const currentAccuracy = score / questions.length;
+    let nextDifficulty = aiFeedback?.sessionSummary?.difficultyProgression?.next || difficulty;
+    let difficultyChanged = difficulty !== nextDifficulty;
     
     return (
-      <div className="shapes-colors-result ai-enhanced">
-        <div className="result-content">
-          <h2>🎓 Shapes & Colors Complete!</h2>
-          
-          <div className="basic-results">
-            <div className="score-display">
-              <div className="score-circle">
-                <span className="score-text">{percentage}%</span>
-              </div>
-            </div>
-            <p><strong>Score:</strong> {score} out of {questions.length} questions correct!</p>
-            <p><strong>Difficulty:</strong> {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</p>
-          </div>
-          
-          {aiFeedback && (
-            <div className="ai-session-summary">
-              <h3>🤖 AI Tutor Analysis</h3>
-              
-              {aiStatus && (
-                <div className="ai-analytics-grid">
-                  <div className="ai-metric">
-                    <span className="ai-metric-value">{aiStatus.difficulty}</span>
-                    <div className="ai-metric-label">Final Difficulty</div>
-                  </div>
-                  <div className="ai-metric">
-                    <span className="ai-metric-value">{aiStatus.performance.toFixed(1)}%</span>
-                    <div className="ai-metric-label">AI Performance</div>
-                  </div>
-                  <div className="ai-metric">
-                    <span className="ai-metric-value">{aiStatus.currentStreak}</span>
-                    <div className="ai-metric-label">Current Streak</div>
-                  </div>
-                  <div className="ai-metric">
-                    <span className="ai-metric-value">{aiStatus.questionsCompleted}</span>
-                    <div className="ai-metric-label">Total Questions</div>
-                  </div>
-                </div>
-              )}
-              
-              {aiFeedback.encouragement && (
-                <div className="ai-encouragement-section">
-                  <h4>🎆 AI Encouragement</h4>
-                  <p className="ai-encouragement">{aiFeedback.encouragement}</p>
-                </div>
-              )}
-              
-              {aiFeedback.insights && aiFeedback.insights.length > 0 && (
-                <div className="ai-insights-section">
-                  <h4>💡 Learning Insights</h4>
-                  <div className="ai-insights">
-                    {aiFeedback.insights.map((insight, idx) => (
-                      <div key={idx} className="insight-item">{insight}</div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {aiFeedback.recommendations && aiFeedback.recommendations.length > 0 && (
-                <div className="ai-recommendations-section">
-                  <h4>🎯 Next Steps</h4>
-                  <div className="ai-recommendations">
-                    <ul>
-                      {aiFeedback.recommendations.map((rec, idx) => (
-                        <li key={idx}>{rec}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
-              
-              {aiFeedback.achievements && aiFeedback.achievements.length > 0 && (
-                <div className="achievements-section">
-                  <h4>🏆 Achievements</h4>
-                  <div className="achievements">
-                    {aiFeedback.achievements.map((achievement, idx) => (
-                      <span key={idx} className="achievement-badge">{achievement}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {aiFeedback.sessionSummary && aiFeedback.sessionSummary.difficultyProgression && (
-                <div className="difficulty-progression-section">
-                  <h4>📊 Difficulty Progression</h4>
-                  <div className="difficulty-progression">
-                    <div className="progression-info">
-                      <div className="current-difficulty">
-                        <span className="difficulty-label">This Session:</span>
-                        <span className={`difficulty-badge difficulty-${aiFeedback.sessionSummary.difficultyProgression.current}`}>
-                          {aiFeedback.sessionSummary.difficultyProgression.current.charAt(0).toUpperCase() + aiFeedback.sessionSummary.difficultyProgression.current.slice(1)}
-                        </span>
-                      </div>
-                      
-                      <div className="accuracy-info">
-                        <span className="accuracy-label">Session Accuracy:</span>
-                        <span className="accuracy-value">
-                          {(aiFeedback.sessionSummary.sessionAccuracy * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      
-                      <div className="next-difficulty">
-                        <span className="difficulty-label">Next Session:</span>
-                        <span className={`difficulty-badge difficulty-${aiFeedback.sessionSummary.difficultyProgression.next}`}>
-                          {aiFeedback.sessionSummary.difficultyProgression.next.charAt(0).toUpperCase() + aiFeedback.sessionSummary.difficultyProgression.next.slice(1)}
-                          {aiFeedback.sessionSummary.difficultyProgression.current !== aiFeedback.sessionSummary.difficultyProgression.next && (
-                            <span className="progression-arrow">
-                              {aiFeedback.sessionSummary.difficultyProgression.next === 'hard' ? ' ⬆️' : 
-                               aiFeedback.sessionSummary.difficultyProgression.next === 'easy' ? ' ⬇️' : 
-                               aiFeedback.sessionSummary.difficultyProgression.next === 'medium' && aiFeedback.sessionSummary.difficultyProgression.current === 'easy' ? ' ⬆️' : ' ⬇️'}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="progression-reason">
-                      <p className="reason-text">{aiFeedback.sessionSummary.difficultyProgression.reason}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {false && (
-            <div className="encouragement-section">
-              {percentage >= 80 ? (
-                <div className="great-job">
-                  <h3>🌟 Outstanding work!</h3>
-                  <p>You have excellent knowledge of shapes and colors!</p>
-                </div>
-              ) : percentage >= 60 ? (
-                <div className="good-job">
-                  <h3>👍 Good job!</h3>
-                  <p>You're learning well! Keep practicing to improve even more.</p>
-                </div>
-              ) : (
-                <div className="keep-trying">
-                  <h3>💪 Keep trying!</h3>
-                  <p>Practice makes perfect. You're on the right track!</p>
-                </div>
-              )}
-            </div>
-          )}
-          
-          <div className="result-actions">
-            <button 
-              className="btn btn-primary" 
-              onClick={() => navigateTo('dashboard')}
-            >
-              🏠 Back to Home
-            </button>
-            {true && (
-              <button 
-                className="btn btn-secondary" 
-                onClick={() => {
-                  // Reset for AI-powered retry
-                  setShowResult(false);
-                  setCurrentQuestionIndex(0);
-                  setScore(0);
-                  resetQuestionState();
-                  console.log('🔄 Starting new AI-powered Shapes & Colors session');
-                }}
-              >
-                🤖 AI Remix Quiz
-              </button>
-            )}
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => window.location.reload()}
-            >
-              🔄 Try Again
-            </button>
-          </div>
-        </div>
-      </div>
+      <ModernFeedback
+        topicName="Shapes & Colors"
+        topicIcon="🎨"
+        score={score}
+        totalQuestions={questions.length}
+        difficulty={difficulty}
+        nextDifficulty={nextDifficulty}
+        difficultyChanged={difficultyChanged}
+        timeSpent={totalTimeSpent}
+        questionDetails={questionDetails}
+        studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
+        onBackToDashboard={() => navigateTo('dashboard')}
+        onTryAgain={() => window.location.reload()}
+        sessionData={aiFeedback?.sessionSummary || {}}
+      />
     );
   }
 

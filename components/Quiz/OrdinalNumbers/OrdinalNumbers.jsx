@@ -4,6 +4,7 @@ import { ordinalNumbersQuestions, ordinalWords, ordinalSymbols, colors, keypadNu
 import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
+import ModernFeedback from '../ModernFeedback';
 import './OrdinalNumbers.css';
 
 const OrdinalNumbers = ({ topic, user, navigateTo }) => {
@@ -38,6 +39,10 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
   const [translatedQuestions, setTranslatedQuestions] = useState([]);
   const [translatedUITexts, setTranslatedUITexts] = useState({});
   const [isTranslating, setIsTranslating] = useState(false);
+  
+  // Tracking for ModernFeedback
+  const [questionDetails, setQuestionDetails] = useState([]);
+  const [totalTimeSpent, setTotalTimeSpent] = useState(0);
 
   // Get difficulty from user performance
   const getDifficultyFromAccuracy = (acc) => {
@@ -287,6 +292,14 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
         isCorrect = false;
     }
 
+    // Track question details for ModernFeedback
+    const timeSpent = Date.now() - questionStartTime;
+    setQuestionDetails(prev => [...prev, {
+      questionType: currentQuestion.type,
+      correct: isCorrect,
+      timeSpent: timeSpent
+    }]);
+    
     if (isCorrect) {
       setScore(prev => prev + 1);
     }
@@ -358,6 +371,8 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
   // Finish quiz and save results
   const finishQuiz = async () => {
     const accuracy = (score / questions.length) * 100;
+    const totalTime = Math.floor(questionDetails.reduce((sum, q) => sum + q.timeSpent, 0) / 1000);
+    setTotalTimeSpent(totalTime);
     
     // Determine next difficulty based on accuracy
     let nextDifficulty = difficulty;
@@ -730,35 +745,40 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
 
   // Results screen
   if (showResult) {
-    const accuracy = Math.round((score / questions.length) * 100);
+    // Calculate next difficulty
+    const currentAccuracy = score / questions.length;
+    let nextDifficulty = difficulty;
+    let difficultyChanged = false;
+    
+    if (currentAccuracy >= 0.8 && difficulty === 'easy') {
+      nextDifficulty = 'medium';
+      difficultyChanged = true;
+    } else if (currentAccuracy >= 0.8 && difficulty === 'medium') {
+      nextDifficulty = 'hard';
+      difficultyChanged = true;
+    } else if (currentAccuracy < 0.6 && difficulty === 'hard') {
+      nextDifficulty = 'medium';
+      difficultyChanged = true;
+    } else if (currentAccuracy < 0.6 && difficulty === 'medium') {
+      nextDifficulty = 'easy';
+      difficultyChanged = true;
+    }
+    
     return (
-      <div className="ordinal-results">
-        <div className="results-header">
-          <h2>🎉 Great Job on Ordinal Numbers!</h2>
-          <div className="score-display">
-            <div className="score-circle">
-              <span className="score-number">{score}</span>
-              <span className="score-total">/{questions.length}</span>
-            </div>
-            <div className="accuracy-text">{accuracy}% Correct</div>
-          </div>
-        </div>
-        
-        <div className="results-feedback">
-          {accuracy >= 80 && <p className="excellent">🌟 Excellent work! You really understand ordinal numbers!</p>}
-          {accuracy >= 60 && accuracy < 80 && <p className="good">👍 Good job! Keep practicing left and right positions!</p>}
-          {accuracy < 60 && <p className="encourage">💪 Keep trying! Remember: 1st, 2nd, 3rd, 4th, 5th!</p>}
-        </div>
-        
-        <div className="results-actions">
-          <button className="btn-primary" onClick={() => window.location.reload()}>
-            Practice Again
-          </button>
-          <button className="btn-secondary" onClick={() => navigateTo('dashboard')}>
-            Back to Dashboard
-          </button>
-        </div>
-      </div>
+      <ModernFeedback
+        topicName="Ordinal Numbers"
+        topicIcon="🔢"
+        score={score}
+        totalQuestions={questions.length}
+        difficulty={difficulty}
+        nextDifficulty={nextDifficulty}
+        difficultyChanged={difficultyChanged}
+        timeSpent={totalTimeSpent}
+        questionDetails={questionDetails}
+        studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
+        onBackToDashboard={() => navigateTo('dashboard')}
+        onTryAgain={() => window.location.reload()}
+      />
     );
   }
 
