@@ -7,6 +7,7 @@ import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
 import ModernFeedback from '../ModernFeedback';
+import ImmediateFeedback from '../ImmediateFeedback';
 import './Time.css';
 
 const Time = ({ topic, user, navigateTo }) => {
@@ -44,6 +45,10 @@ const Time = ({ topic, user, navigateTo }) => {
   // Tracking for ModernFeedback
   const [questionDetails, setQuestionDetails] = useState([]);
   const [totalTimeSpent, setTotalTimeSpent] = useState(0);
+  
+  // Immediate feedback states
+  const [showImmediateFeedback, setShowImmediateFeedback] = useState(false);
+  const [currentFeedbackData, setCurrentFeedbackData] = useState(null);
 
   // Normalize AI difficulty names to quiz difficulty names
   const normalizeDifficultyName = (aiDifficulty) => {
@@ -759,32 +764,33 @@ const Time = ({ topic, user, navigateTo }) => {
     // Set AI feedback
     setAiFeedback(aiAnalysisResult.aiFeedback);
 
-    // Save individual question result to database (optional - for detailed tracking)
-    if (user && topic) {
-      try {
-        // Note: We're not saving individual questions to avoid 404 errors
-        // All data will be saved comprehensively in finishQuiz()
-        console.log(` Question ${currentQuestionIndex + 1} completed: ${isCorrect ? 'Correct' : 'Incorrect'}`);
-      } catch (error) {
-        console.warn('Individual question save skipped:', error);
-      }
-    }
+    // Show immediate feedback popup
+    setCurrentFeedbackData({
+      isCorrect,
+      question: currentQuestion,
+      userAnswer: selectedOption || textInput || `${Object.keys(droppedShapes).length} matches`,
+      correctAnswer: currentQuestion.correctAnswer || currentQuestion.answer || 'See explanation'
+    });
+    setShowImmediateFeedback(true);
+  };
 
-    setTimeout(() => {
-      setIsChecking(false);
-      if (currentQuestionIndex + 1 < questions.length) {
-        // Next question
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-        resetQuestionState();
-        
-        // Start tracking next question
-        const nextQuestion = questions[currentQuestionIndex + 1];
-        const questionTrackingData = aiController.startQuestion(nextQuestion);
-        setQuestionStartTime(questionTrackingData.startTime);
-      } else {
-        finishQuiz();
-      }
-    }, 2000);
+  const handleFeedbackClose = async () => {
+    setShowImmediateFeedback(false);
+    setCurrentFeedbackData(null);
+    setIsChecking(false);
+    
+    if (currentQuestionIndex + 1 < questions.length) {
+      // Next question
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      resetQuestionState();
+      
+      // Start tracking next question
+      const nextQuestion = questions[currentQuestionIndex + 1];
+      const questionTrackingData = aiController.startQuestion(nextQuestion);
+      setQuestionStartTime(questionTrackingData.startTime);
+    } else {
+      finishQuiz();
+    }
   };
 
   const resetQuestionState = () => {
@@ -1599,6 +1605,18 @@ const Time = ({ topic, user, navigateTo }) => {
           </button>
         )}
       </div>
+
+      {/* Immediate Feedback Popup */}
+      {currentFeedbackData && (
+        <ImmediateFeedback
+          isVisible={showImmediateFeedback}
+          isCorrect={currentFeedbackData.isCorrect}
+          question={currentFeedbackData.question}
+          userAnswer={currentFeedbackData.userAnswer}
+          correctAnswer={currentFeedbackData.correctAnswer}
+          onClose={handleFeedbackClose}
+        />
+      )}
     </div>
   );
 };

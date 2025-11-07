@@ -8,6 +8,7 @@ import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
 import ModernFeedback from '../ModernFeedback';
+import ImmediateFeedback from '../ImmediateFeedback';
 
 // Utility to shuffle questions
 function shuffle(array) {
@@ -34,6 +35,10 @@ const Addition = ({ topic, user, navigateTo }) => {
   const [aiFeedback, setAiFeedback] = useState(null);
   const [totalTimeSpent, setTotalTimeSpent] = useState(0);
   const [questionDetails, setQuestionDetails] = useState([]);
+  
+  // Immediate feedback states
+  const [showImmediateFeedback, setShowImmediateFeedback] = useState(false);
+  const [currentFeedbackData, setCurrentFeedbackData] = useState(null);
   
   // Translation states
   const [isFrench, setIsFrench] = useState(false);
@@ -123,24 +128,35 @@ const Addition = ({ topic, user, navigateTo }) => {
       }
     }
     
+    // Update score
     if (isCorrect) {
       setScore(score + 1);
-      setFeedback({ type: 'correct', message: 'Correct! Well done!' });
-    } else {
-      setFeedback({ type: 'incorrect', message: `Not quite. The answer is ${currentQuestion.answer}.` });
     }
     
-    setTimeout(async () => {
-      if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-        setSelectedOption(null);
-        setFeedback(null);
-        setQuestionStartTime(Date.now());
-      } else {
-        await finishQuiz();
-      }
-      setIsChecking(false);
-    }, 2000);
+    // Show immediate feedback popup
+    setCurrentFeedbackData({
+      isCorrect,
+      question: currentQuestion,
+      userAnswer: answer,
+      correctAnswer: currentQuestion.answer
+    });
+    setShowImmediateFeedback(true);
+  };
+
+  const handleFeedbackClose = async () => {
+    setShowImmediateFeedback(false);
+    setCurrentFeedbackData(null);
+    
+    // Move to next question or finish quiz
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setSelectedOption(null);
+      setFeedback(null);
+      setQuestionStartTime(Date.now());
+    } else {
+      await finishQuiz();
+    }
+    setIsChecking(false);
   };
 
   const checkAnswer = (question, answer) => {
@@ -627,26 +643,32 @@ const Addition = ({ topic, user, navigateTo }) => {
       </div>
       
       <div className="question-content">
-  <div className="question-header">
-    <div className="question-text">{getCurrentQuestion()?.prompt || getCurrentQuestion()?.question || (isFrench ? 'Chargement de la question...' : 'Loading question...')}</div>
-    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-      <TTSButton 
-        question={getCurrentQuestion()?.prompt || getCurrentQuestion()?.question || ''}
-        options={[]}
-      />
-      <TranslationButton 
-        onToggle={handleTranslationToggle}
-        isFrench={isFrench}
-      />
-    </div>
-  </div>
-  {renderQuestion(getCurrentQuestion(), currentQuestionIndex)}
-</div>
-      
-      {feedback && (
-        <div className={`feedback ${feedback.type === 'correct' ? 'correct-feedback' : 'incorrect-feedback'}`}>
-          {feedback.message}
+        <div className="question-header">
+          <div className="question-text">{getCurrentQuestion()?.prompt || getCurrentQuestion()?.question || (isFrench ? 'Chargement de la question...' : 'Loading question...')}</div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <TTSButton 
+              question={getCurrentQuestion()?.prompt || getCurrentQuestion()?.question || ''}
+              options={[]}
+            />
+            <TranslationButton 
+              onToggle={handleTranslationToggle}
+              isFrench={isFrench}
+            />
+          </div>
         </div>
+        {renderQuestion(getCurrentQuestion(), currentQuestionIndex)}
+      </div>
+      
+      {/* Immediate Feedback Popup */}
+      {currentFeedbackData && (
+        <ImmediateFeedback
+          isVisible={showImmediateFeedback}
+          isCorrect={currentFeedbackData.isCorrect}
+          question={currentFeedbackData.question}
+          userAnswer={currentFeedbackData.userAnswer}
+          correctAnswer={currentFeedbackData.correctAnswer}
+          onClose={handleFeedbackClose}
+        />
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
 import ModernFeedback from '../ModernFeedback';
+import ImmediateFeedback from '../ImmediateFeedback';
 import './Money.css';
 
 const Money = ({ topic, user, navigateTo }) => {
@@ -27,6 +28,10 @@ const Money = ({ topic, user, navigateTo }) => {
   
   const [questionStartTime, setQuestionStartTime] = useState(null);
   const [gptFeedback, setGptFeedback] = useState(null);
+  
+  // Immediate feedback states
+  const [showImmediateFeedback, setShowImmediateFeedback] = useState(false);
+  const [currentFeedbackData, setCurrentFeedbackData] = useState(null);
   const [difficultyProgression, setDifficultyProgression] = useState(null);
   const [shouldValidate, setShouldValidate] = useState(false);
   
@@ -247,33 +252,30 @@ const Money = ({ topic, user, navigateTo }) => {
     if (isCorrect) {
       setScore(score + 1);
       setFeedback('correct');
-      
-      // Get positive feedback
-      try {
-        await getGPTFeedback(question, {}, true);
-      } catch (error) {
-        console.log('Feedback generation skipped:', error.message);
-      }
-      
-      // Auto-progress after short delay
-      setTimeout(() => {
-        nextQuestion();
-      }, 1500);
     } else {
       setFeedback('incorrect');
-      
-      // Get encouraging feedback
-      try {
-        await getGPTFeedback(question, {}, false);
-      } catch (error) {
-        console.log('Feedback generation skipped:', error.message);
-      }
-      
-      // Allow retry after feedback
-      setTimeout(() => {
-        setFeedback(null);
-        setGptFeedback(null);
-      }, 2500);
+    }
+
+    // Show immediate feedback popup
+    setCurrentFeedbackData({
+      isCorrect,
+      question: question,
+      userAnswer: selectedOption || textInput || selectedCoins.length || 'Your answer',
+      correctAnswer: question.correct || question.answer || 'See explanation'
+    });
+    setShowImmediateFeedback(true);
+  };
+
+  const handleFeedbackClose = async () => {
+    setShowImmediateFeedback(false);
+    setCurrentFeedbackData(null);
+    
+    if (currentFeedbackData?.isCorrect) {
+      nextQuestion();
+    } else {
+      // Allow retry for incorrect answers
+      setFeedback(null);
+      setGptFeedback(null);
     }
   };
 
@@ -875,6 +877,18 @@ const Money = ({ topic, user, navigateTo }) => {
       </div>
 
       {/* Removed quiz actions - automatic validation now */}
+
+      {/* Immediate Feedback Popup */}
+      {currentFeedbackData && (
+        <ImmediateFeedback
+          isVisible={showImmediateFeedback}
+          isCorrect={currentFeedbackData.isCorrect}
+          question={currentFeedbackData.question}
+          userAnswer={currentFeedbackData.userAnswer}
+          correctAnswer={currentFeedbackData.correctAnswer}
+          onClose={handleFeedbackClose}
+        />
+      )}
     </div>
   );
 };

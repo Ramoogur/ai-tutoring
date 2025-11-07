@@ -7,6 +7,7 @@ import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
 import ModernFeedback from '../ModernFeedback';
+import ImmediateFeedback from '../ImmediateFeedback';
 import './Patterns.css';
 
 const Patterns = ({ topic, user, navigateTo }) => {
@@ -36,6 +37,10 @@ const Patterns = ({ topic, user, navigateTo }) => {
   // Tracking for ModernFeedback
   const [questionDetails, setQuestionDetails] = useState([]);
   const [totalTimeSpent, setTotalTimeSpent] = useState(0);
+  
+  // Immediate feedback states
+  const [showImmediateFeedback, setShowImmediateFeedback] = useState(false);
+  const [currentFeedbackData, setCurrentFeedbackData] = useState(null);
   
   const canvasRef = useRef(null);
   const tracingRef = useRef(null);
@@ -450,16 +455,29 @@ const Patterns = ({ topic, user, navigateTo }) => {
       setFeedback({ isCorrect: false, message: feedbackMessage });
     }
 
-    setTimeout(() => {
-      if (currentQuestionIndex < questions.length - 1) {
-        const nextIndex = currentQuestionIndex + 1;
-        setCurrentQuestionIndex(nextIndex);
-        resetQuestionState();
-        setQuestionStartTime(Date.now());
-      } else {
-        finishQuiz();
-      }
-    }, 2000);
+    // Show immediate feedback popup
+    setCurrentFeedbackData({
+      isCorrect,
+      question: currentQuestion,
+      userAnswer: selectedOption || `${droppedItems.length} items`,
+      correctAnswer: currentQuestion.correct || currentQuestion.answer || 'See explanation'
+    });
+    setShowImmediateFeedback(true);
+  };
+
+  const handleFeedbackClose = async () => {
+    setShowImmediateFeedback(false);
+    setCurrentFeedbackData(null);
+    setIsChecking(false);
+    
+    if (currentQuestionIndex < questions.length - 1) {
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      resetQuestionState();
+      setQuestionStartTime(Date.now());
+    } else {
+      finishQuiz();
+    }
   };
 
   const resetQuestionState = () => {
@@ -1072,6 +1090,18 @@ const Patterns = ({ topic, user, navigateTo }) => {
           </button>
         </div>
       </div>
+
+      {/* Immediate Feedback Popup */}
+      {currentFeedbackData && (
+        <ImmediateFeedback
+          isVisible={showImmediateFeedback}
+          isCorrect={currentFeedbackData.isCorrect}
+          question={currentFeedbackData.question}
+          userAnswer={currentFeedbackData.userAnswer}
+          correctAnswer={currentFeedbackData.correctAnswer}
+          onClose={handleFeedbackClose}
+        />
+      )}
     </div>
   );
 };

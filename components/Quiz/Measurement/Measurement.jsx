@@ -5,6 +5,7 @@ import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
 import ModernFeedback from '../ModernFeedback';
+import ImmediateFeedback from '../ImmediateFeedback';
 import './Measurement.css';
 
 const Measurement = ({ topic, user, navigateTo }) => {
@@ -35,6 +36,10 @@ const Measurement = ({ topic, user, navigateTo }) => {
   const [questionDetails, setQuestionDetails] = useState([]);
   const [totalTimeSpent, setTotalTimeSpent] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+  
+  // Immediate feedback states
+  const [showImmediateFeedback, setShowImmediateFeedback] = useState(false);
+  const [currentFeedbackData, setCurrentFeedbackData] = useState(null);
 
   // Get difficulty from user performance
   const getDifficultyFromAccuracy = (acc) => {
@@ -847,15 +852,28 @@ const Measurement = ({ topic, user, navigateTo }) => {
       setFeedback({ isCorrect: false, message: '👍 Good try! Let\'s practice more.' });
     }
 
-    setTimeout(() => {
-      if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-        setQuestionStartTime(Date.now());
-        resetQuestionState();
-      } else {
-        finishQuiz();
-      }
-    }, 2000);
+    // Show immediate feedback popup
+    setCurrentFeedbackData({
+      isCorrect,
+      question: currentQuestion,
+      userAnswer: selectedOption || textInput || `${selectedItems.size} items`,
+      correctAnswer: currentQuestion.correct || currentQuestion.answer || 'See explanation'
+    });
+    setShowImmediateFeedback(true);
+  };
+
+  const handleFeedbackClose = async () => {
+    setShowImmediateFeedback(false);
+    setCurrentFeedbackData(null);
+    setIsChecking(false);
+    
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setQuestionStartTime(Date.now());
+      resetQuestionState();
+    } else {
+      finishQuiz();
+    }
   };
 
   const resetQuestionState = () => {
@@ -1250,6 +1268,18 @@ const Measurement = ({ topic, user, navigateTo }) => {
           </button>
         )}
       </div>
+
+      {/* Immediate Feedback Popup */}
+      {currentFeedbackData && (
+        <ImmediateFeedback
+          isVisible={showImmediateFeedback}
+          isCorrect={currentFeedbackData.isCorrect}
+          question={currentFeedbackData.question}
+          userAnswer={currentFeedbackData.userAnswer}
+          correctAnswer={currentFeedbackData.correctAnswer}
+          onClose={handleFeedbackClose}
+        />
+      )}
     </div>
   );
 

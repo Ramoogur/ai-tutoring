@@ -7,6 +7,7 @@ import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
 import ModernFeedback from '../ModernFeedback';
+import ImmediateFeedback from '../ImmediateFeedback';
 import './ShapesColors.css';
 
 const ShapesColors = ({ topic, user, navigateTo }) => {
@@ -40,6 +41,10 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
   // Tracking for ModernFeedback
   const [questionDetails, setQuestionDetails] = useState([]);
   const [totalTimeSpent, setTotalTimeSpent] = useState(0);
+  
+  // Immediate feedback states
+  const [showImmediateFeedback, setShowImmediateFeedback] = useState(false);
+  const [currentFeedbackData, setCurrentFeedbackData] = useState(null);
   
   const canvasRef = useRef(null);
   const tracingRef = useRef(null);
@@ -519,21 +524,34 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
       setFeedback({ isCorrect: false, message: feedbackMessage });
     }
 
-    setTimeout(() => {
-      if (currentQuestionIndex < questions.length - 1) {
-        const nextIndex = currentQuestionIndex + 1;
-        setCurrentQuestionIndex(nextIndex);
-        resetQuestionState();
-        
-        // Start tracking the next question for AI
-        if (questions[nextIndex]) {
-          const questionTrackingData = aiController.startQuestion(questions[nextIndex]);
-          setQuestionStartTime(questionTrackingData.startTime);
-        }
-      } else {
-        finishQuiz();
+    // Show immediate feedback popup
+    setCurrentFeedbackData({
+      isCorrect,
+      question: currentQuestion,
+      userAnswer: userAnswer,
+      correctAnswer: currentQuestion.correct || currentQuestion.answer
+    });
+    setShowImmediateFeedback(true);
+  };
+
+  const handleFeedbackClose = async () => {
+    setShowImmediateFeedback(false);
+    setCurrentFeedbackData(null);
+    
+    // Move to next question or finish quiz
+    if (currentQuestionIndex < questions.length - 1) {
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      resetQuestionState();
+      
+      // Start tracking the next question for AI
+      if (questions[nextIndex]) {
+        const questionTrackingData = aiController.startQuestion(questions[nextIndex]);
+        setQuestionStartTime(questionTrackingData.startTime);
       }
-    }, 2500); // AI processing delay
+    } else {
+      finishQuiz();
+    }
   };
 
   const resetQuestionState = () => {
@@ -1184,6 +1202,18 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
         
         {/* AI is always enabled - toggle removed */}
       </div>
+
+      {/* Immediate Feedback Popup */}
+      {currentFeedbackData && (
+        <ImmediateFeedback
+          isVisible={showImmediateFeedback}
+          isCorrect={currentFeedbackData.isCorrect}
+          question={currentFeedbackData.question}
+          userAnswer={currentFeedbackData.userAnswer}
+          correctAnswer={currentFeedbackData.correctAnswer}
+          onClose={handleFeedbackClose}
+        />
+      )}
     </div>
   );
 };

@@ -7,6 +7,7 @@ import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
 import ModernFeedback from '../ModernFeedback';
+import ImmediateFeedback from '../ImmediateFeedback';
 import './NumbersCounting.css';
 
 // Static data for rendering (no longer importing from external file)
@@ -80,6 +81,10 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
   const tracingCanvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isTracing, setIsTracing] = useState(false);
+  
+  // Immediate feedback states
+  const [showImmediateFeedback, setShowImmediateFeedback] = useState(false);
+  const [currentFeedbackData, setCurrentFeedbackData] = useState(null);
 
   // Get difficulty from user performance - same as ShapesColors
   const getDifficultyFromAccuracy = (acc) => {
@@ -646,17 +651,27 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
       setScore(prev => prev + 1);
     }
     
+    // Show immediate feedback popup
+    setCurrentFeedbackData({
+      isCorrect,
+      question: question,
+      userAnswer: userResponse,
+      correctAnswer: question.answer
+    });
+    setShowImmediateFeedback(true);
+  };
+
+  const handleFeedbackClose = async () => {
+    setShowImmediateFeedback(false);
+    setCurrentFeedbackData(null);
+    setIsChecking(false);
+    
     // Auto-advance to next question or finish quiz
     if (currentQuestionIndex >= questions.length - 1) {
       finishQuiz();
     } else {
-      // Move to next question immediately
-      setTimeout(() => {
-        nextQuestion();
-      }, 500); // Brief delay to register the answer
+      nextQuestion();
     }
-    
-    setIsChecking(false);
   };
 
   const nextQuestion = () => {
@@ -1419,6 +1434,18 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           {isChecking ? (translatedUITexts['Checking...'] || 'Checking...') : (translatedUITexts['Next Question'] || 'Next Question')}
         </button>
       </div>
+
+      {/* Immediate Feedback Popup */}
+      {currentFeedbackData && (
+        <ImmediateFeedback
+          isVisible={showImmediateFeedback}
+          isCorrect={currentFeedbackData.isCorrect}
+          question={currentFeedbackData.question}
+          userAnswer={currentFeedbackData.userAnswer}
+          correctAnswer={currentFeedbackData.correctAnswer}
+          onClose={handleFeedbackClose}
+        />
+      )}
     </div>
   );
 
