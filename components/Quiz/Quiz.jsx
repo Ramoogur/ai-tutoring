@@ -11,7 +11,7 @@ import Measurement from './Measurement/Measurement';
 import OrdinalNumbers from './OrdinalNumbers/OrdinalNumbers';
 import Patterns from './Patterns/Patterns';
 import Money from './Money/Money';
-import Abacus from './Abacus/Abacus';
+import Abacus from '../Games/Abacus';
 
 const Quiz = ({ topic, user, navigateTo }) => {
   if (!topic) {
