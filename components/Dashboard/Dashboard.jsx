@@ -89,7 +89,7 @@ const Dashboard = ({ user, startQuiz, navigateToProgress }) => {
       </div>
 
       <div className="grade-info">
-        <h2>Your Grade Level: {selectedGrade}</h2>
+        <h2>Your Grade Level: 1</h2>
         <p>All content is tailored to your grade level</p>
       </div>
 

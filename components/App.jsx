@@ -3,7 +3,6 @@ import LandingPage from './Landing/LandingPage';
 import Login from './Auth/Login';
 import Register from './Auth/Register';
 import DashboardRouter from './Dashboard/DashboardRouter';
-import ParentDashboard from './Parent/ParentDashboard';
 import Quiz from './Quiz/Quiz';
 import { MathJourney } from './Dashboard/Progress';
 
@@ -28,6 +27,7 @@ const App = () => {
       
       setProgressData(realProgressData);
       setCurrentPage('math-journey');
+      window.history.pushState({ page: 'math-journey' }, '', window.location.href);
     } catch (error) {
       console.error('Error loading progress data:', error);
       // Fallback to mock data if there's an error
@@ -42,6 +42,7 @@ const App = () => {
         'Ordinal Numbers': { completed: 0, total: 15, percent: 0 },
       });
       setCurrentPage('math-journey');
+      window.history.pushState({ page: 'math-journey' }, '', window.location.href);
     }
   };
 
@@ -51,31 +52,63 @@ const App = () => {
     if (savedUser) {
       setUser(JSON.parse(savedUser));
       setIsLoggedIn(true);
-      setCurrentPage('dashboard');
+      // Check if there's a history state, otherwise default to dashboard
+      const initialPage = window.history.state?.page || 'dashboard';
+      setCurrentPage(initialPage);
     }
   }, []);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = (event) => {
+      if (event.state && event.state.page) {
+        setCurrentPage(event.state.page);
+        // Restore quiz topic if navigating back to quiz
+        if (event.state.page === 'quiz' && event.state.quizTopic) {
+          setQuizTopic(event.state.quizTopic);
+        }
+      } else {
+        setCurrentPage('landing');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    // Set initial state if none exists
+    if (!window.history.state) {
+      window.history.replaceState({ page: currentPage }, '', window.location.href);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [currentPage]);
 
   const handleLogin = (userData) => {
     setUser(userData);
     setIsLoggedIn(true);
     localStorage.setItem('learnCountUser', JSON.stringify(userData));
     setCurrentPage('dashboard');
+    window.history.pushState({ page: 'dashboard' }, '', window.location.href);
   };
 
   const handleLogout = () => {
     setUser(null);
     setIsLoggedIn(false);
     localStorage.removeItem('learnCountUser');
-    setCurrentPage('login');
+    setCurrentPage('landing');
+    window.history.pushState({ page: 'landing' }, '', window.location.href);
   };
 
   const navigateTo = (page) => {
     setCurrentPage(page);
+    window.history.pushState({ page }, '', window.location.href);
   };
 
   const startQuiz = (topic) => {
     setQuizTopic(topic);
     setCurrentPage('quiz');
+    window.history.pushState({ page: 'quiz', quizTopic: topic }, '', window.location.href);
   };
 
   const renderNavigation = () => {
@@ -87,7 +120,6 @@ const App = () => {
         <div className="container nav-container">
           <a href="#" className="logo" onClick={() => navigateTo('dashboard')}>Learn<span>&Count</span></a>
           <div className="nav-links">
-            <a href="#" onClick={() => navigateTo('dashboard')}>Home</a>
             <a href="#" onClick={handleLogout}>Logout</a>
           </div>
         </div>
@@ -104,13 +136,11 @@ const App = () => {
       case 'register':
         return <Register navigateTo={navigateTo} />;
       case 'dashboard':
-        return user.accountType === 'parent' 
-          ? <ParentDashboard user={user} navigateTo={navigateTo} />
-          : <DashboardRouter user={user} startQuiz={startQuiz} navigateToProgress={handleNavigateToProgress} />;
+        return <DashboardRouter user={user} startQuiz={startQuiz} navigateToProgress={handleNavigateToProgress} />;
       case 'quiz':
         return <Quiz topic={quizTopic} user={user} navigateTo={navigateTo} />;
       case 'math-journey':
-        return <MathJourney progressData={progressData} onBack={() => setCurrentPage('dashboard')} studentId={user.id} />;
+        return <MathJourney progressData={progressData} onBack={() => { setCurrentPage('dashboard'); window.history.pushState({ page: 'dashboard' }, '', window.location.href); }} studentId={user.id} />;
       default:
         return <LandingPage navigateTo={navigateTo} />;
     }

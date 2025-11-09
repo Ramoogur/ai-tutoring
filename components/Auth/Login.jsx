@@ -5,8 +5,6 @@ import bcrypt from 'bcryptjs';
 const Login = ({ onLogin, navigateTo }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
-  const [accountType, setAccountType] = useState('student');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
@@ -18,75 +16,44 @@ const Login = ({ onLogin, navigateTo }) => {
       return;
     }
 
-    if (accountType === 'student') {
-      // ✅ Query Supabase Student table
-      const { data, error: dbError } = await supabase
-        .from('Student')
-        .select('*')
-        .eq('username', username)
-        .single();
-
-      if (dbError || !data) {
-        setError('Username not found');
-        return;
-      }
-
-      // ✅ Compare password hash
-      const passwordMatch = await bcrypt.compare(password, data.password);
-
-      if (!passwordMatch) {
-        setError('Incorrect password');
-        return;
-      }
-
-      // ✅ Create user object for dashboard
-      const userData = {
-        id: data.id,
-        username: data.username,
-        grade: data.grade_level,
-        accountType: 'student',
-        progress: {
-          completedQuizzes: 0,
-          correctAnswers: 0,
-          totalQuestions: 0,
-          topicProgress: {},
-          quizHistory: []
-        },
-        linkedAccounts: []
-      };
-
-      onLogin(userData);
-    }
-  // ✅ NEW: Handle Parent Login
-  if (accountType === 'parent') {
+    // Query Supabase Student table
     const { data, error: dbError } = await supabase
-      .from('Parent')
+      .from('Student')
       .select('*')
-      .eq('parent_email', email)
+      .eq('username', username)
       .single();
 
     if (dbError || !data) {
-      setError('Parent email not found');
+      setError('Username not found');
       return;
     }
 
+    // Compare password hash
     const passwordMatch = await bcrypt.compare(password, data.password);
+
     if (!passwordMatch) {
       setError('Incorrect password');
       return;
     }
 
+    // Create user object for dashboard
     const userData = {
       id: data.id,
-      email: data.parent_email,
-      username: data.parent_email, // for consistency
-      accountType: 'parent',
+      username: data.username,
+      grade: data.grade_level,
+      accountType: 'student',
+      progress: {
+        completedQuizzes: 0,
+        correctAnswers: 0,
+        totalQuestions: 0,
+        topicProgress: {},
+        quizHistory: []
+      },
       linkedAccounts: []
     };
 
-    onLogin(userData); // 🔁 This will lead to <ParentDashboard user={userData} />
-  }
-};
+    onLogin(userData);
+  };
 
   
   return (
@@ -94,52 +61,17 @@ const Login = ({ onLogin, navigateTo }) => {
       <h2 className="form-title">Login to Learn&Count</h2>
       {error && <div className="error-message">{error}</div>}
       
-      <div className="form-group">
-        <label htmlFor="accountType">Account Type</label>
-        <div className="account-type-selector">
-          <div 
-            className={`account-type-option ${accountType === 'student' ? 'active' : ''}`}
-            onClick={() => setAccountType('student')}
-          >
-            <span className="account-icon">👨‍🎓</span>
-            <span>Student</span>
-          </div>
-          <div 
-            className={`account-type-option ${accountType === 'parent' ? 'active' : ''}`}
-            onClick={() => setAccountType('parent')}
-          >
-            <span className="account-icon">👨‍👩‍👧‍👦</span>
-            <span>Parent</span>
-          </div>
-        </div>
-      </div>
-      
       <form onSubmit={handleSubmit}>
-        {accountType === 'student' && (
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input 
-              type="text" 
-              id="username" 
-              value={username} 
-              onChange={(e) => setUsername(e.target.value)} 
-              placeholder="Enter your username"
-            />
-          </div>
-        )}
-        
-        {accountType === 'parent' && (
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input 
-              type="email" 
-              id="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              placeholder="Enter your email"
-            />
-          </div>
-        )}
+        <div className="form-group">
+          <label htmlFor="username">Username</label>
+          <input 
+            type="text" 
+            id="username" 
+            value={username} 
+            onChange={(e) => setUsername(e.target.value)} 
+            placeholder="Enter your username"
+          />
+        </div>
         
         <div className="form-group">
           <label htmlFor="password">Password</label>
