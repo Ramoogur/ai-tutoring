@@ -12,6 +12,7 @@ import OrdinalNumbers from './OrdinalNumbers/OrdinalNumbers';
 import Patterns from './Patterns/Patterns';
 import Money from './Money/Money';
 import Abacus from '../Games/Abacus';
+import Matching from '../Games/Matching';
 
 const Quiz = ({ topic, user, navigateTo }) => {
   if (!topic) {
@@ -75,6 +76,11 @@ const Quiz = ({ topic, user, navigateTo }) => {
   // Abacus
   if (topicName.includes('abacus')) {
     return <Abacus topic={topic} user={user} navigateTo={navigateTo} />;
+  }
+
+  // Matching Game
+  if (topicName.includes('matching') || topicName.includes('match')) {
+    return <Matching studentId={user.id} navigateTo={navigateTo} />;
   }
 
   // Default fallback
