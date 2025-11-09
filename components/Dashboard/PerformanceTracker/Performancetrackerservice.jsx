@@ -452,7 +452,7 @@ ${Object.keys(topicStats).map(topic =>
 
     // Call OpenAI API
     const response = await openaiClient.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',

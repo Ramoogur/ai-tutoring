@@ -15,7 +15,7 @@ export const generateMatchingPairs = async (topic) => {
     const prompt = createPromptForTopic(topic);
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -244,7 +244,7 @@ Write a short, encouraging, and age-appropriate feedback message (3-4 sentences)
 Use simple language, emojis, and be very positive and supportive. Keep it under 100 words.`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -309,7 +309,7 @@ Write a detailed but age-appropriate feedback message (5-7 sentences) that:
 Use simple language, emojis, and be very positive and supportive. Keep it under 200 words.`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",

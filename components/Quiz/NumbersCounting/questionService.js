@@ -26,7 +26,7 @@ class QuestionService {
     // Generate questions with GPT
     if (useGPT && this.gptGenerator.isReady()) {
       try {
-        console.log('🤖 Generating questions with GPT-3.5...');
+        console.log('🤖 Generating questions with GPT-4o...');
         questions = await this.gptGenerator.generateQuestions(level, count, topic);
         
         if (questions && questions.length > 0) {

@@ -259,7 +259,7 @@ export const generateAIFeedback = async (topicData, feedbackType = 'strength') =
     const prompt = buildFeedbackPrompt(topicData, feedbackType);
     
     const response = await openaiClient.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',

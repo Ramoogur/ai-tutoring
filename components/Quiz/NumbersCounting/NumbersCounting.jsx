@@ -162,7 +162,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     let selectedQuestions = [];
     
     try {
-      console.log('🤖 Generating dynamic questions with GPT-3.5...');
+      console.log('🤖 Generating dynamic questions with GPT-4o...');
       
       // Generate questions using GPT service only - force GPT generation
       selectedQuestions = await questionService.getQuestions(
@@ -332,7 +332,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           'Return to Home': 'Retour à l\'Accueil',
           'AI Remix Quiz': 'Quiz AI Remix',
           'Preparing Numbers & Counting Quiz': 'Préparation du Quiz de Nombres et Comptage',
-          'GPT-3.5 is generating personalized questions...': 'GPT-3.5 génère des questions personnalisées...',
+          'GPT-4o is generating personalized questions...': 'GPT-4o génère des questions personnalisées...',
           'AI is selecting personalized questions for you...': 'L\'IA sélectionne des questions personnalisées pour vous...',
           'Dynamic Questions': 'Questions Dynamiques',
           'Static Questions': 'Questions Statiques',
@@ -1314,7 +1314,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
             <div className="loading-spinner"></div>
             <h2> {isFrench ? (translatedUITexts['Preparing Numbers & Counting Quiz'] || 'Préparation du Quiz de Nombres et Comptage') : 'Preparing Numbers & Counting Quiz'}</h2>
             {gptGenerating ? (
-              <p> {isFrench ? (translatedUITexts['GPT-3.5 is generating personalized questions...'] || 'GPT-3.5 génère des questions personnalisées...') : 'GPT-3.5 is generating personalized questions...'}</p>
+              <p> {isFrench ? (translatedUITexts['GPT-4o is generating personalized questions...'] || 'GPT-4o génère des questions personnalisées...') : 'GPT-4o is generating personalized questions...'}</p>
             ) : (
               <p> {isFrench ? (translatedUITexts['AI is selecting personalized questions for you...'] || 'L\'IA sélectionne des questions personnalisées pour vous...') : 'AI is selecting personalized questions for you...'}</p>
             )}

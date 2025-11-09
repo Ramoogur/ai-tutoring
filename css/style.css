@@ -334,100 +334,286 @@ input:focus, select:focus {
   transform: translateY(-2px);
 }
 
-/* Dashboard */
+/* ============================================
+   MODERNIZED DASHBOARD STYLES FOR GRADE 1
+   Child-Friendly Math AI Tutor
+   ============================================ */
+
+/* Enhanced Dashboard Variables */
 .dashboard {
-  padding: 30px 0;
-  animation: fadeIn 0.6s ease-out;
+  --dashboard-primary: #6B7AED;
+  --dashboard-secondary: #FFB84D;
+  --dashboard-accent-pink: #FF6B9D;
+  --dashboard-accent-green: #4CAF50;
 }
 
+/* ============================================
+   DASHBOARD CONTAINER
+   ============================================ */
+.dashboard {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #F0F4FF 0%, #E8F5E9 100%);
+  padding: var(--spacing-lg, 32px) var(--spacing-md, 24px);
+  animation: fadeIn 0.8s ease;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Decorative Background Elements */
+.dashboard::before {
+  content: '🌟';
+  position: fixed;
+  top: 10%;
+  right: 5%;
+  font-size: 3rem;
+  opacity: 0.3;
+  animation: float 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.dashboard::after {
+  content: '✨';
+  position: fixed;
+  bottom: 15%;
+  left: 8%;
+  font-size: 2.5rem;
+  opacity: 0.3;
+  animation: float 5s ease-in-out infinite 1s;
+  pointer-events: none;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+/* ============================================
+   WELCOME BANNER - Enhanced
+   ============================================ */
 .welcome-banner {
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 40%, #f093fb 100%);
   color: white;
-  padding: 35px;
-  border-radius: var(--border-radius);
-  margin-bottom: 35px;
-  box-shadow: var(--shadow-lg);
+  padding: 48px;
+  border-radius: 30px;
+  margin-bottom: 48px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
   position: relative;
   overflow: hidden;
-  animation: slideUp 0.5s ease;
+  animation: slideDown 0.6s ease;
+  border: 3px solid rgba(255, 255, 255, 0.3);
 }
 
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animated Background Pattern */
 .welcome-banner::before {
   content: '';
   position: absolute;
-  top: -50px;
-  right: -50px;
-  width: 100px;
-  height: 100px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: shimmer 20s linear infinite;
+  pointer-events: none;
 }
 
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/* Floating Graduation Cap */
 .welcome-banner::after {
   content: '🎓';
   position: absolute;
-  top: 20px;
-  right: 25px;
-  font-size: 2rem;
-  opacity: 0.8;
-  animation: pulse 3s infinite;
+  top: 24px;
+  right: 32px;
+  font-size: 4rem;
+  animation: bounce 3s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 .welcome-banner h1 {
-  margin-bottom: 12px;
-  font-family: 'Bubblegum Sans', cursive;
-  font-size: 2.2rem;
+  font-family: 'Bubblegum Sans', 'Comic Sans MS', cursive, sans-serif;
+  font-size: 2.8rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
+  letter-spacing: 1px;
+}
+
+.welcome-banner p {
+  font-size: 1.3rem;
+  font-weight: 500;
+  opacity: 0.95;
+  position: relative;
+  z-index: 1;
   text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
 }
 
+/* ============================================
+   STATS CONTAINER - Two Card Layout
+   ============================================ */
 .stats-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 25px;
-  margin-bottom: 35px;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 32px;
+  margin-bottom: 48px;
 }
 
+/* ============================================
+   STAT CARDS - Enhanced Design
+   ============================================ */
 .stat-card {
-  background: var(--card-bg);
-  padding: 25px;
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-md);
+  background: var(--card-bg, #FFFFFF);
+  padding: 32px;
+  border-radius: 30px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   text-align: center;
-  transition: all var(--transition-normal);
-  border-top: 5px solid var(--primary-light);
-  animation: fadeIn 0.5s ease both;
+  transition: all 0.3s ease;
+  border: 3px solid transparent;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  animation: scaleIn 0.5s ease both;
 }
 
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Different animation delays for cards */
 .stat-card:nth-child(1) {
   animation-delay: 0.1s;
+  border-top: 5px solid #FF6B9D;
 }
 
 .stat-card:nth-child(2) {
   animation-delay: 0.2s;
+  border-top: 5px solid #4CAF50;
 }
 
-.stat-card:nth-child(3) {
-  animation-delay: 0.3s;
+/* Shimmer Effect on Cards */
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.5s;
 }
 
+.stat-card:hover::before {
+  left: 100%;
+}
+
+/* Hover Effects */
 .stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-10px) scale(1.03);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  background: #F8FBFF;
+  border-color: currentColor;
 }
 
+/* Icon Styling */
+.stat-card .stat-icon {
+  font-size: 3.5rem;
+  margin-bottom: 24px;
+  animation: bounce 2s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+}
+
+@keyframes wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-5deg);
+  }
+  75% {
+    transform: rotate(5deg);
+  }
+}
+
+.stat-card:hover .stat-icon {
+  animation: wiggle 0.5s ease;
+}
+
+/* Stat Title */
+.stat-card h3 {
+  font-family: 'Bubblegum Sans', 'Comic Sans MS', cursive, sans-serif;
+  font-size: 1.6rem;
+  color: var(--text-primary, #2C3E50);
+  margin-bottom: 16px;
+  font-weight: 700;
+}
+
+/* Stat Label */
 .stat-card p {
-  color: #666;
+  font-size: 1.1rem;
+  color: var(--text-secondary, #5A6C7D);
   font-weight: 500;
-  text-transform: uppercase;
-  font-size: 0.9rem;
-  letter-spacing: 1px;
 }
 
+/* Backward compatibility for h2 in stat cards */
 .stat-card h2 {
   font-size: 3rem;
   color: var(--primary-color);
   margin: 10px 0;
   font-weight: 700;
+}
+
+/* Custom Colors for Each Card */
+.stat-card:nth-child(1) h3 {
+  color: #FF6B9D;
+}
+
+.stat-card:nth-child(2) h3 {
+  color: #4CAF50;
 }
 
 /* My Math Journey card styling */
@@ -438,7 +624,7 @@ input:focus, select:focus {
 }
 
 .journey-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-10px) scale(1.03);
   box-shadow: 0 15px 35px rgba(255, 71, 87, 0.2);
   border-color: #ff3742 !important;
 }
@@ -466,7 +652,7 @@ input:focus, select:focus {
 }
 
 .performance-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-10px) scale(1.03);
   box-shadow: 0 15px 35px rgba(16, 185, 129, 0.2);
   border-color: #059669 !important;
 }
@@ -477,58 +663,123 @@ input:focus, select:focus {
   margin: 0;
 }
 
-.grade-info {
-  background: var(--card-bg);
-  padding: 25px;
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-md);
-  margin-bottom: 35px;
+/* ============================================
+   GRADE LEVEL INFO CARD
+   ============================================ */
+.grade-info,
+.grade-info-card {
+  background: linear-gradient(135deg, #FFF9C4 0%, #FFEB3B 50%, #FFC107 100%);
+  padding: 32px;
+  border-radius: 30px;
+  margin-bottom: 48px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  border: 3px solid #FFA000;
   position: relative;
   overflow: hidden;
-  border-left: 5px solid var(--secondary-color);
-  animation: slideUp 0.5s ease both;
-  animation-delay: 0.4s;
+  animation: slideUp 0.6s ease 0.3s both;
 }
 
-.grade-info h2 {
-  color: var(--primary-color);
-  margin-bottom: 10px;
-  font-family: 'Bubblegum Sans', cursive;
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.grade-info p {
-  color: #666;
+.grade-info::before,
+.grade-info-card::before {
+  content: '📚';
+  position: absolute;
+  top: 50%;
+  right: 32px;
+  transform: translateY(-50%);
+  font-size: 4rem;
+  opacity: 0.4;
+  animation: float 4s ease-in-out infinite;
+}
+
+.grade-info h2,
+.grade-info-card h3 {
+  font-family: 'Bubblegum Sans', 'Comic Sans MS', cursive, sans-serif;
+  font-size: 2rem;
+  color: #E65100;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.grade-info p,
+.grade-info-card p {
+  font-size: 1.2rem;
+  color: #F57C00;
+  font-weight: 600;
 }
 
 .grade-info::after {
-  content: '📚';
-  position: absolute;
-  bottom: 15px;
-  right: 20px;
+  content: none;
+}
+
+/* ============================================
+   MATH TOPICS SECTION
+   ============================================ */
+.topics-section {
+  animation: slideUp 0.6s ease 0.4s both;
+}
+
+.topics-section h2 {
+  font-family: 'Bubblegum Sans', 'Comic Sans MS', cursive, sans-serif;
   font-size: 2.5rem;
-  opacity: 0.2;
-}
-
-.topic-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 25px;
-  margin-top: 20px;
-}
-
-.topic-card {
-  background: var(--card-bg);
-  padding: 30px 20px;
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-md);
+  color: var(--text-primary, #2C3E50);
+  margin-bottom: 32px;
   text-align: center;
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.topics-section h2::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 5px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 10px;
+}
+
+/* ============================================
+   TOPICS GRID - Enhanced Layout
+   ============================================ */
+.topic-grid,
+.topics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 32px;
+  padding: 16px;
+}
+
+/* ============================================
+   TOPIC CARDS - Child-Friendly Design
+   ============================================ */
+.topic-card {
+  background: var(--card-bg, #FFFFFF);
+  padding: 32px;
+  border-radius: 30px;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  border: 3px solid #E3F2FD;
+  transition: all 0.3s ease;
   cursor: pointer;
-  transition: all var(--transition-normal);
   position: relative;
   overflow: hidden;
-  animation: fadeIn 0.5s ease both;
+  animation: scaleIn 0.5s ease both;
 }
 
+/* Staggered Animation for Topic Cards */
 .topic-card:nth-child(1) { animation-delay: 0.1s; }
 .topic-card:nth-child(2) { animation-delay: 0.2s; }
 .topic-card:nth-child(3) { animation-delay: 0.3s; }
@@ -538,64 +789,137 @@ input:focus, select:focus {
 .topic-card:nth-child(7) { animation-delay: 0.7s; }
 .topic-card:nth-child(8) { animation-delay: 0.8s; }
 
+/* Gradient Overlay */
 .topic-card::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, var(--primary-light), var(--primary-color));
-  opacity: 0;
-  transition: opacity var(--transition-normal);
-  z-index: 1;
-}
-
-.topic-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: var(--shadow-lg);
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
 }
 
 .topic-card:hover::before {
-  opacity: 0.9;
+  transform: scaleX(1);
+}
+
+/* Topic Card Hover Effects */
+.topic-card:hover {
+  transform: translateY(-12px) rotate(2deg);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  border-color: #667eea;
+  background: linear-gradient(135deg, #FFFFFF 0%, #F0F4FF 100%);
 }
 
 .topic-card:hover * {
-  color: white !important;
   position: relative;
   z-index: 2;
 }
 
+/* Topic Icon Styling */
 .topic-icon {
-  margin-bottom: 15px;
-  font-size: 4rem !important;
-  background: rgba(78, 84, 200, 0.1);
   width: 100px;
   height: 100px;
+  margin: 0 auto 24px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 4rem !important;
+  background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
   border-radius: 50%;
-  margin: 0 auto 20px;
-  transition: all var(--transition-normal);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  position: relative;
 }
 
 .topic-card:hover .topic-icon {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.1);
+  transform: scale(1.15) rotate(10deg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  animation: wiggle 0.6s ease;
 }
 
+/* Unique Icon Backgrounds for Each Topic */
+.topic-card:nth-child(1) .topic-icon {
+  background: linear-gradient(135deg, #E1F5FE 0%, #81D4FA 100%);
+}
+
+.topic-card:nth-child(2) .topic-icon {
+  background: linear-gradient(135deg, #F3E5F5 0%, #CE93D8 100%);
+}
+
+.topic-card:nth-child(3) .topic-icon {
+  background: linear-gradient(135deg, #E8F5E9 0%, #A5D6A7 100%);
+}
+
+.topic-card:nth-child(4) .topic-icon {
+  background: linear-gradient(135deg, #FFF3E0 0%, #FFCC80 100%);
+}
+
+.topic-card:nth-child(5) .topic-icon {
+  background: linear-gradient(135deg, #FCE4EC 0%, #F48FB1 100%);
+}
+
+.topic-card:nth-child(6) .topic-icon {
+  background: linear-gradient(135deg, #E0F2F1 0%, #80CBC4 100%);
+}
+
+.topic-card:nth-child(7) .topic-icon {
+  background: linear-gradient(135deg, #FFF9C4 0%, #FFF176 100%);
+}
+
+.topic-card:nth-child(8) .topic-icon {
+  background: linear-gradient(135deg, #EDE7F6 0%, #B39DDB 100%);
+}
+
+/* Topic Title */
 .topic-card h3 {
-  color: var(--primary-color);
-  margin-bottom: 10px;
-  font-size: 1.4rem;
-  font-weight: 600;
+  font-family: 'Bubblegum Sans', 'Comic Sans MS', cursive, sans-serif;
+  font-size: 1.5rem;
+  color: var(--text-primary, #2C3E50);
+  margin-bottom: 8px;
+  font-weight: 700;
+  transition: color 0.2s ease;
 }
 
+.topic-card:hover h3 {
+  color: #667eea;
+}
+
+/* Topic Description */
 .topic-card p {
-  color: #666;
-  font-size: 0.95rem;
-  transition: all var(--transition-normal);
+  font-size: 1rem;
+  color: var(--text-secondary, #5A6C7D);
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+/* Progress Badge (if exists) */
+.topic-card .progress-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
 }
 
 /* Games Section Styling */
@@ -623,6 +947,176 @@ input:focus, select:focus {
   font-size: 1.5rem;
   font-weight: 600;
 }
+
+/* ============================================
+   LOADING STATES
+   ============================================ */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 24px;
+}
+
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  border: 5px solid #E3F2FD;
+  border-top: 5px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-family: 'Bubblegum Sans', 'Comic Sans MS', cursive, sans-serif;
+  font-size: 1.5rem;
+  color: var(--text-primary, #2C3E50);
+  font-weight: 600;
+}
+
+/* ============================================
+   BUTTONS - Enhanced Styling
+   ============================================ */
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 16px 32px;
+  border-radius: 20px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  font-family: 'Bubblegum Sans', 'Comic Sans MS', cursive, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-primary:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* ============================================
+   ACCESSIBILITY ENHANCEMENTS
+   ============================================ */
+
+/* Focus Styles for Keyboard Navigation */
+.topic-card:focus,
+.stat-card:focus,
+.btn-primary:focus {
+  outline: 3px solid #667eea;
+  outline-offset: 3px;
+}
+
+/* Reduced Motion for Users Who Prefer It */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .stat-card,
+  .topic-card,
+  .grade-info,
+  .grade-info-card {
+    border-width: 3px;
+  }
+  
+  .btn-primary {
+    border: 2px solid white;
+  }
+}
+
+/* ============================================
+   ADDITIONAL CHILD-FRIENDLY ELEMENTS
+   ============================================ */
+
+/* Confetti Effect on Card Click (Optional) */
+.topic-card.clicked {
+  animation: confetti 0.6s ease;
+}
+
+@keyframes confetti {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.1) rotate(5deg);
+  }
+  50% {
+    transform: scale(1.05) rotate(-5deg);
+  }
+  75% {
+    transform: scale(1.1) rotate(3deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* Success/Achievement Stars */
+.achievement-star {
+  position: absolute;
+  font-size: 2rem;
+  animation: starBurst 1s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes starBurst {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5) rotate(180deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* ============================================
+   END OF MODERNIZED DASHBOARD STYLES
+   ============================================ */
 
 
 /* Quiz */
@@ -1424,6 +1918,7 @@ input:focus, select:focus {
   font-size: 4rem;
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: bold;
   margin: 30px 0;
@@ -1432,7 +1927,32 @@ input:focus, select:focus {
   animation: pulse 2s infinite;
 }
 
-/* Responsive Styles */
+/* ============================================
+   RESPONSIVE DESIGN FOR DASHBOARD
+   ============================================ */
+
+/* Tablet Devices */
+@media (max-width: 1024px) {
+  .welcome-banner h1 {
+    font-size: 2.4rem;
+  }
+  
+  .welcome-banner::after {
+    font-size: 3rem;
+  }
+  
+  .stats-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .topics-grid,
+  .topic-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 24px;
+  }
+}
+
+/* Mobile Devices */
 @media (max-width: 768px) {
   .nav-container {
     flex-direction: column;
@@ -1448,25 +1968,84 @@ input:focus, select:focus {
     grid-template-columns: 1fr;
   }
   
+  .dashboard {
+    padding: 24px 16px;
+  }
+  
+  .welcome-banner {
+    padding: 32px 24px;
+  }
+  
+  .welcome-banner h1 {
+    font-size: 2rem;
+  }
+  
+  .welcome-banner p {
+    font-size: 1.1rem;
+  }
+  
+  .welcome-banner::after {
+    font-size: 2.5rem;
+    top: 16px;
+    right: 24px;
+  }
+  
+  .stats-container {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  
   .stat-card {
-    padding: 20px;
+    padding: 24px;
+  }
+  
+  .stat-card .stat-icon {
+    font-size: 3rem;
+  }
+  
+  .grade-info,
+  .grade-info-card {
+    padding: 24px;
+  }
+  
+  .grade-info h2,
+  .grade-info-card h3 {
+    font-size: 1.6rem;
+  }
+  
+  .topics-section h2 {
+    font-size: 2rem;
+  }
+  
+  .topics-grid,
+  .topic-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  
+  .topic-card {
+    padding: 24px;
+  }
+  
+  .topic-card .topic-icon {
+    width: 80px;
+    height: 80px;
+    font-size: 3rem !important;
+  }
+  
+  .topic-card h3 {
+    font-size: 1.3rem;
+  }
+  
+  /* Remove floating decorations on mobile */
+  .dashboard::before,
+  .dashboard::after {
+    display: none;
   }
   
   .quiz-container {
     padding: 25px;
     margin: 20px 15px;
-  }
-  
-  .topic-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  }
-  
-  .welcome-banner {
-    padding: 25px;
-  }
-  
-  .welcome-banner h1 {
-    font-size: 1.8rem;
   }
   
   .score {
@@ -1475,6 +2054,35 @@ input:focus, select:focus {
   
   .result-container h2 {
     font-size: 1.8rem;
+  }
+}
+
+/* Small Mobile Devices */
+@media (max-width: 480px) {
+  .welcome-banner h1 {
+    font-size: 1.8rem;
+  }
+  
+  .welcome-banner p {
+    font-size: 1rem;
+  }
+  
+  .topics-section h2 {
+    font-size: 1.8rem;
+  }
+  
+  .topic-card .topic-icon {
+    width: 70px;
+    height: 70px;
+    font-size: 2.5rem !important;
+  }
+  
+  .topic-card h3 {
+    font-size: 1.2rem;
+  }
+  
+  .topic-card p {
+    font-size: 0.9rem;
   }
 }
 

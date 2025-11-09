@@ -1,11 +1,11 @@
-// GPT-3.5 Question Generator for Numbers and Counting
+// GPT-4o Question Generator for Numbers and Counting
 // Uses official OpenAI SDK for better reliability
 
 import OpenAI from 'openai';
 
 class GPTQuestionGenerator {
   constructor() {
-    this.model = 'gpt-3.5-turbo';
+    this.model = 'gpt-4o';
     this.openai = null;
     this.initializeOpenAI();
   }
