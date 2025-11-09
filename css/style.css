@@ -458,6 +458,25 @@ input:focus, select:focus {
   font-weight: 700;
 }
 
+/* Performance Tracker card styling */
+.performance-card {
+  padding: 0 !important;
+  overflow: hidden;
+  border: 2px solid #10b981 !important;
+}
+
+.performance-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(16, 185, 129, 0.2);
+  border-color: #059669 !important;
+}
+
+.performance-card .performance-tracker-card {
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+}
+
 .grade-info {
   background: var(--card-bg);
   padding: 25px;

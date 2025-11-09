@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 const Dashboard = ({ user, startQuiz, navigateToProgress }) => {
   // Always use the user's grade from their profile
   const [selectedGrade, setSelectedGrade] = useState(user.grade);
+  const [showPerformanceTracker, setShowPerformanceTracker] = useState(false);
   
   const topics = [
     {
@@ -55,15 +56,6 @@ const Dashboard = ({ user, startQuiz, navigateToProgress }) => {
     },
   ];
 
-  // Calculate stats
-  const completionRate = user.progress && user.progress.totalQuestions > 0
-    ? Math.round((user.progress.completedQuizzes / topics.length) * 100)
-    : 0;
-  
-  const accuracy = user.progress && user.progress.totalQuestions > 0
-    ? Math.round((user.progress.correctAnswers / user.progress.totalQuestions) * 100)
-    : 0;
-
   const handleStartQuiz = (topic) => {
     // Directly start quiz; difficulty will be determined automatically
     startQuiz(topic);
@@ -77,17 +69,13 @@ const Dashboard = ({ user, startQuiz, navigateToProgress }) => {
       </div>
 
       <div className="stats-container">
-        <div className="stat-card">
-          <p>Completion Rate</p>
-          <h2>{completionRate}%</h2>
-        </div>
-        <div className="stat-card">
-          <p>Accuracy</p>
-          <h2>{accuracy}%</h2>
-        </div>
         <div className="stat-card journey-card" onClick={navigateToProgress}>
           <p>🚀 My Math Journey</p>
           <h2>View Progress</h2>
+        </div>
+        <div className="stat-card performance-card" onClick={() => alert('Performance Tracker - Coming Soon! This will show detailed analytics and performance metrics.')}>
+          <p>📊 Performance Tracker</p>
+          <h2>View Analytics</h2>
         </div>
       </div>
 
