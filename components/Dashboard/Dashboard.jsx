@@ -1,4 +1,10 @@
+/**
+ * Dashboard Component - UPDATED WITH PERFORMANCE TRACKER
+ * This is the updated version with Performance Tracker integration
+ */
+
 import React, { useState } from 'react';
+import PerformanceTracker from './PerformanceTracker/Performancetracker';
 
 const Dashboard = ({ user, startQuiz, navigateToProgress }) => {
   // Always use the user's grade from their profile
@@ -73,7 +79,10 @@ const Dashboard = ({ user, startQuiz, navigateToProgress }) => {
           <p>🚀 My Math Journey</p>
           <h2>View Progress</h2>
         </div>
-        <div className="stat-card performance-card" onClick={() => alert('Performance Tracker - Coming Soon! This will show detailed analytics and performance metrics.')}>
+        <div 
+          className="stat-card performance-card" 
+          onClick={() => setShowPerformanceTracker(true)}
+        >
           <p>📊 Performance Tracker</p>
           <h2>View Analytics</h2>
         </div>
@@ -110,6 +119,14 @@ const Dashboard = ({ user, startQuiz, navigateToProgress }) => {
           </div>
         </div>
       </div>
+
+      {/* Performance Tracker Modal */}
+      {showPerformanceTracker && (
+        <PerformanceTracker 
+          user={user} 
+          onClose={() => setShowPerformanceTracker(false)} 
+        />
+      )}
     </div>
   );
 };
