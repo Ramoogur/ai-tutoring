@@ -159,6 +159,79 @@ const Time = ({ topic, user, navigateTo }) => {
     })();
   }, [topic, user]);
 
+  // Restart quiz with updated difficulty and reshuffled questions
+  const restartQuiz = async () => {
+    console.log('🔄 Restarting Time quiz...');
+    
+    // Reset all state
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setShowResult(false);
+    setFeedback(null);
+    setAiFeedback(null);
+    setMatchedPairs(new Set());
+    setDroppedShapes({});
+    setSequencedItems([]);
+    setColoredScenes(new Set());
+    setSelectedColor(null);
+    setLitTargets(new Set());
+    setQuestionDetails([]);
+    setTotalTimeSpent(0);
+    setSelectedOption(null);
+    setIsChecking(false);
+    setSessionData({ correct: 0, total: 0 });
+
+    // Fetch updated difficulty from database
+    let updatedDifficulty = 'easy';
+    try {
+      const { data: stats, error } = await supabase
+        .from('StudentTopicStats')
+        .select('current_difficulty')
+        .eq('student_id', user.id)
+        .eq('topic_id', topic.id)
+        .maybeSingle();
+      
+      if (!error && stats && stats.current_difficulty) {
+        updatedDifficulty = stats.current_difficulty;
+        console.log(`📊 Fetched updated difficulty: ${updatedDifficulty}`);
+      } else {
+        console.log('ℹ️ No saved difficulty found, using default: easy');
+      }
+    } catch (error) {
+      console.error('Error fetching difficulty:', error);
+    }
+    
+    setDifficulty(updatedDifficulty);
+
+    // Initialize new AI session
+    aiController.startQuizSession('time');
+    aiTutor.setDifficultyForNextSession(updatedDifficulty);
+    setAiStatus(aiController.getAIStatus());
+
+    // Get and shuffle questions with AI selection
+    const allQuestions = [
+      ...(timeQuestions.easy || []).map(q => ({ ...q, difficulty: 'easy' })),
+      ...(timeQuestions.medium || []).map(q => ({ ...q, difficulty: 'medium' })),
+      ...(timeQuestions.hard || []).map(q => ({ ...q, difficulty: 'hard' }))
+    ];
+    
+    let selectedQuestions = [];
+    if (allQuestions.length > 0) {
+      selectedQuestions = aiController.prepareQuestions(allQuestions, 5);
+      console.log(`🧠 AI selected ${selectedQuestions.length} new personalized questions`);
+    }
+    
+    setQuestions(selectedQuestions);
+    
+    // Start tracking the first question
+    if (selectedQuestions.length > 0) {
+      const questionTrackingData = aiController.startQuestion(selectedQuestions[0]);
+      setQuestionStartTime(questionTrackingData.startTime);
+    }
+    
+    console.log(`✅ Quiz restarted at ${updatedDifficulty} difficulty with ${selectedQuestions.length} new questions`);
+  };
+
   // Generate SVG for time elements
   const generateTimeSVG = (element, color = '#FFD700', size = 100) => {
     const center = size / 2;
@@ -989,7 +1062,7 @@ const Time = ({ topic, user, navigateTo }) => {
         questionDetails={questionDetails}
         studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
         onBackToDashboard={() => navigateTo('topics')}
-        onTryAgain={() => window.location.reload()}
+        onTryAgain={restartQuiz}
         sessionData={aiFeedback?.sessionSummary || {}}
       />
     );

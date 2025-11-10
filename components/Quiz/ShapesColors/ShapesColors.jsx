@@ -146,6 +146,79 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
     })();
   }, [topic, user]);
 
+  // Restart quiz with updated difficulty and reshuffled questions
+  const restartQuiz = async () => {
+    console.log('🔄 Restarting Shapes & Colors quiz...');
+    
+    // Reset all state
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setShowResult(false);
+    setFeedback(null);
+    setAiFeedback(null);
+    setSortedItems([]);
+    setMatchedPairs(new Set());
+    setTextInput('');
+    setQuestionDetails([]);
+    setTotalTimeSpent(0);
+    setSelectedOption(null);
+    setIsChecking(false);
+
+    // Fetch updated difficulty from database
+    let updatedDifficulty = 'easy';
+    try {
+      const { data: stats, error } = await supabase
+        .from('StudentTopicStats')
+        .select('current_difficulty')
+        .eq('student_id', user.id)
+        .eq('topic_id', topic.id)
+        .maybeSingle();
+      
+      if (!error && stats && stats.current_difficulty) {
+        updatedDifficulty = stats.current_difficulty;
+        console.log(`📊 Fetched updated difficulty: ${updatedDifficulty}`);
+      } else {
+        console.log('ℹ️ No saved difficulty found, using default: easy');
+      }
+    } catch (error) {
+      console.error('Error fetching difficulty:', error);
+    }
+    
+    setDifficulty(updatedDifficulty);
+
+    // Initialize new AI session
+    aiController.startQuizSession('shapes_colors');
+    aiTutor.setDifficultyForNextSession(updatedDifficulty);
+    setAiStatus(aiController.getAIStatus());
+
+    // Get and shuffle questions with AI selection
+    const allQuestions = [
+      ...(shapesColorsQuestions.easy || []).map(q => ({ ...q, difficulty: 'easy' })),
+      ...(shapesColorsQuestions.medium || []).map(q => ({ ...q, difficulty: 'medium' })),
+      ...(shapesColorsQuestions.hard || []).map(q => ({ ...q, difficulty: 'hard' }))
+    ];
+    
+    let selectedQuestions = [];
+    if (allQuestions.length > 0) {
+      selectedQuestions = aiController.prepareQuestions(allQuestions, 5);
+      console.log(`🧠 AI selected ${selectedQuestions.length} new personalized questions`);
+    } else {
+      // Fallback to shuffled questions
+      const difficultyQuestions = shapesColorsQuestions[updatedDifficulty] || shapesColorsQuestions.easy;
+      selectedQuestions = [...difficultyQuestions].sort(() => Math.random() - 0.5).slice(0, 5);
+    }
+    
+    setQuestions(selectedQuestions);
+    
+    // Start tracking the first question
+    if (selectedQuestions.length > 0) {
+      const questionTrackingData = aiController.startQuestion(selectedQuestions[0]);
+      setQuestionStartTime(questionTrackingData.startTime);
+    }
+    
+    console.log(`✅ Quiz restarted at ${updatedDifficulty} difficulty with ${selectedQuestions.length} new questions`);
+  };
+
   // Generate SVG for shapes
   const generateShapeSVG = (shape, color, size = 100, className = '') => {
     const center = size / 2;
@@ -683,7 +756,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
         questionDetails={questionDetails}
         studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
         onBackToDashboard={() => navigateTo('dashboard')}
-        onTryAgain={() => window.location.reload()}
+        onTryAgain={restartQuiz}
         sessionData={aiFeedback?.sessionSummary || {}}
       />
     );

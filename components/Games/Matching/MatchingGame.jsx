@@ -107,14 +107,16 @@ const MatchingGame = ({ topic, studentId, onComplete, onBack }) => {
   };
 
   const handleRightClick = (item) => {
-    // If already matched to a left item, don't allow selection
-    const alreadyMatched = Object.values(userMatches).includes(item.pairId);
-    if (alreadyMatched) {
-      // Find and undo this match
-      const leftPairId = Object.keys(userMatches).find(key => userMatches[key] === item.pairId);
-      if (leftPairId !== undefined) {
-        handleUndo(parseInt(leftPairId));
-      }
+    // Allow selection even if already matched (for duplicate answers)
+    // But if clicking a matched item, show it's already selected
+    const matchedLeftPairIds = Object.keys(userMatches).filter(key => userMatches[key] === item.pairId);
+    
+    // If this right item is matched and we're clicking it again without a left selection,
+    // allow undoing one of the matches
+    if (matchedLeftPairIds.length > 0 && !selectedLeft) {
+      // Undo the most recent match to this right item
+      const lastMatchedLeftPairId = matchedLeftPairIds[matchedLeftPairIds.length - 1];
+      handleUndo(parseInt(lastMatchedLeftPairId));
       return;
     }
     
@@ -193,7 +195,11 @@ const MatchingGame = ({ topic, studentId, onComplete, onBack }) => {
       const rightPairId = userMatches[leftPairId];
       const leftItem = leftItems.find(item => item.pairId === parseInt(leftPairId));
       const rightItem = rightItems.find(item => item.pairId === rightPairId);
-      const isCorrect = parseInt(leftPairId) === rightPairId;
+      
+      // Check if the selected right item's content matches the correct answer
+      // This allows multiple left items to match the same right answer
+      const correctAnswer = pairs[parseInt(leftPairId)].right;
+      const isCorrect = rightItem.content === correctAnswer;
       
       if (isCorrect) correctCount++;
       
@@ -201,7 +207,7 @@ const MatchingGame = ({ topic, studentId, onComplete, onBack }) => {
         leftItem: leftItem.content,
         rightItem: rightItem.content,
         isCorrect,
-        correctAnswer: pairs[parseInt(leftPairId)].right
+        correctAnswer: correctAnswer
       });
     });
     
@@ -406,7 +412,7 @@ const MatchingGame = ({ topic, studentId, onComplete, onBack }) => {
 
       {/* Instructions */}
       <div className="game-instructions">
-        <p>👆 Click one item from each column to match them! Click a matched pair to undo it.</p>
+        <p>👆 Click one item from each column to match them! Multiple problems can have the same answer. Click a matched pair to undo it.</p>
       </div>
 
       {/* Matching Grid */}
@@ -455,23 +461,31 @@ const MatchingGame = ({ topic, studentId, onComplete, onBack }) => {
         {/* Right Column */}
         <div className="matching-column right-column">
           <h3 className="column-title">With These:</h3>
-          {rightItems.map((item) => (
-            <div
-              key={item.id}
-              id={`right-${item.pairId}`}
-              className={`matching-item ${
-                selectedRight?.id === item.id ? 'selected' : ''
-              } ${
-                Object.values(userMatches).includes(item.pairId) ? 'matched' : ''
-              }`}
-              onClick={() => handleRightClick(item)}
-            >
-              <span className="item-content">{item.content}</span>
-              {Object.values(userMatches).includes(item.pairId) && (
-                <span className="match-checkmark">🔗</span>
-              )}
-            </div>
-          ))}
+          {rightItems.map((item) => {
+            // Count how many times this right item has been matched
+            const matchCount = Object.values(userMatches).filter(pairId => pairId === item.pairId).length;
+            const isMatched = matchCount > 0;
+            
+            return (
+              <div
+                key={item.id}
+                id={`right-${item.pairId}`}
+                className={`matching-item ${
+                  selectedRight?.id === item.id ? 'selected' : ''
+                } ${
+                  isMatched ? 'matched' : ''
+                }`}
+                onClick={() => handleRightClick(item)}
+              >
+                <span className="item-content">{item.content}</span>
+                {isMatched && (
+                  <span className="match-checkmark">
+                    🔗{matchCount > 1 ? ` ×${matchCount}` : ''}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

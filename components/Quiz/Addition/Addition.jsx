@@ -104,6 +104,57 @@ const Addition = ({ topic, user, navigateTo }) => {
     initializeQuiz();
   }, [user]);
 
+  // Restart quiz with updated difficulty and reshuffled questions
+  const restartQuiz = async () => {
+    console.log('🔄 Restarting Addition quiz...');
+    
+    // Reset all state
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setShowResult(false);
+    setFeedback(null);
+    setAiFeedback(null);
+    setQuestionDetails([]);
+    setTotalTimeSpent(0);
+    setSelectedOption(null);
+    setIsChecking(false);
+
+    // Fetch updated difficulty from database
+    let updatedDifficulty = 'easy';
+    try {
+      const { data: stats, error } = await supabase
+        .from('StudentTopicStats')
+        .select('current_difficulty')
+        .eq('student_id', user.id)
+        .eq('topic_id', topic.id)
+        .maybeSingle();
+      
+      if (!error && stats && stats.current_difficulty) {
+        updatedDifficulty = stats.current_difficulty;
+        console.log(`📊 Fetched updated difficulty: ${updatedDifficulty}`);
+      } else {
+        console.log('ℹ️ No saved difficulty found, using default: easy');
+      }
+    } catch (error) {
+      console.error('Error fetching difficulty:', error);
+    }
+    
+    setDifficulty(updatedDifficulty);
+
+    // Initialize new AI session
+    if (aiController && typeof aiController.startQuizSession === 'function') {
+      await aiController.startQuizSession(user.id, topic.id, updatedDifficulty);
+      setAiStatus(`AI Active - ${updatedDifficulty.charAt(0).toUpperCase() + updatedDifficulty.slice(1)} Level`);
+    }
+
+    // Get and shuffle questions for the updated difficulty
+    const selectedQuestions = shuffle(additionQuestions[updatedDifficulty] || additionQuestions.easy).slice(0, 5);
+    setQuestions(selectedQuestions);
+    setQuestionStartTime(Date.now());
+    
+    console.log(`✅ Quiz restarted at ${updatedDifficulty} difficulty with ${selectedQuestions.length} new questions`);
+  };
+
   const handleAnswer = async (answer) => {
     if (isChecking) return;
     setIsChecking(true);
@@ -620,7 +671,7 @@ const Addition = ({ topic, user, navigateTo }) => {
         questionDetails={questionDetails}
         studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
         onBackToDashboard={() => navigateTo && navigateTo('dashboard')}
-        onTryAgain={() => window.location.reload()}
+        onTryAgain={restartQuiz}
       />
     );
   }

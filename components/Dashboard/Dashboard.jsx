@@ -70,21 +70,35 @@ const Dashboard = ({ user, startQuiz, navigateToProgress }) => {
   return (
     <div className="dashboard">
       <div className="welcome-banner">
-        <h1>Welcome, {user.username}!</h1>
+        <h1>Welcome, {user.fullName || user.username}!</h1>
         <p>Let's continue learning math today</p>
       </div>
 
       <div className="stats-container">
         <div className="stat-card journey-card" onClick={navigateToProgress}>
-          <p>🚀 My Math Journey</p>
-          <h2>View Progress</h2>
+          <div className="card-icon-wrapper">
+            <div className="card-icon journey-icon">🚀</div>
+          </div>
+          <div className="card-content-wrapper">
+            <p className="card-label">My Math Journey</p>
+            <h2 className="card-title">View Progress</h2>
+            <p className="card-description">Track your learning adventure and see how far you've come!</p>
+          </div>
+          <div className="card-arrow">→</div>
         </div>
         <div 
           className="stat-card performance-card" 
           onClick={() => setShowPerformanceTracker(true)}
         >
-          <p>📊 Performance Tracker</p>
-          <h2>View Analytics</h2>
+          <div className="card-icon-wrapper">
+            <div className="card-icon performance-icon">📊</div>
+          </div>
+          <div className="card-content-wrapper">
+            <p className="card-label">Performance Tracker</p>
+            <h2 className="card-title">View Analytics</h2>
+            <p className="card-description">Check your scores, achievements, and see your stars shine!</p>
+          </div>
+          <div className="card-arrow">→</div>
         </div>
       </div>
 

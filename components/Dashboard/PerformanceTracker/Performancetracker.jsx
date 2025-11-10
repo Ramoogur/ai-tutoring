@@ -43,13 +43,22 @@ const PerformanceTracker = ({ user, onClose }) => {
     return (
       <div className="performance-tracker-modal">
         <div className="performance-tracker-container loading-container">
-          <div className="loading-spinner">
-            <div className="spinner-icon">📊</div>
-            <h2>Loading Your Amazing Progress...</h2>
-            <div className="loading-dots">
-              <span></span>
-              <span></span>
-              <span></span>
+          <div className="modern-loading-spinner">
+            <div className="loading-animation">
+              <div className="spinner-circle">
+                <div className="circle-gradient"></div>
+              </div>
+              <div className="loading-icons">
+                <span className="icon-float icon-1">🚀</span>
+                <span className="icon-float icon-2">⭐</span>
+                <span className="icon-float icon-3">🎯</span>
+                <span className="icon-float icon-4">✨</span>
+              </div>
+            </div>
+            <h2 className="loading-title">Loading Your Amazing Progress...</h2>
+            <p className="loading-subtitle">Getting ready to show your incredible achievements!</p>
+            <div className="progress-bar">
+              <div className="progress-bar-fill"></div>
             </div>
           </div>
         </div>
@@ -82,12 +91,12 @@ const PerformanceTracker = ({ user, onClose }) => {
   const { overall, quiz, abacus, matching, aiInsights, topicStats } = performanceData;
 
   return (
-    <div className="performance-tracker-modal" onClick={onClose}>
-      <div className="performance-tracker-container" onClick={(e) => e.stopPropagation()}>
+    <div className="performance-tracker-modal performance-tracker-fullscreen">
+      <div className="performance-tracker-container performance-tracker-full" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="tracker-header">
           <div className="header-content">
-            <h1>🌟 {user.username}'s Math Journey 🌟</h1>
+            <h1>🌟 {user.fullName || user.username}'s Math Journey 🌟</h1>
             <p>Look at all the amazing things you've learned!</p>
           </div>
           <button className="close-btn" onClick={onClose}>✕</button>

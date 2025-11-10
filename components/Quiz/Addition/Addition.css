@@ -166,10 +166,16 @@
 
 .addition-prompt {
   font-size: 20px;
-  margin-bottom: 15px;
-  color: #333;
-  font-weight: bold;
+  margin: 20px 0 15px 0;
+  padding: 20px 25px;
+  color: #1B5E20;
+  font-weight: 600;
   text-align: center;
+  background: linear-gradient(135deg, #E8F5E8, #C8E6C9);
+  border-radius: 16px;
+  border-left: 6px solid #4CAF50;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.2);
+  line-height: 1.4;
 }
 
 .addition-input {

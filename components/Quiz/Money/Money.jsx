@@ -101,6 +101,32 @@ const Money = ({ topic, user, navigateTo }) => {
     loadQuestions();
   }, []);
 
+  // Restart quiz with updated difficulty and reshuffled questions
+  const restartQuiz = async () => {
+    console.log('🔄 Restarting Money quiz...');
+    
+    // Reset all state
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setShowResult(false);
+    setFeedback(null);
+    setQuestionDetails([]);
+    setTotalTimeSpent(0);
+    setSelectedOption(null);
+    setSelectedCoins([]);
+    setCoinCounts({});
+    setMatchedPairs([]);
+    setTextInput('');
+    setSelectedChoices([]);
+    setIsChecking(false);
+
+    // Fetch updated difficulty from database and load new questions
+    await loadQuestions();
+    setQuestionStartTime(Date.now());
+    
+    console.log(`✅ Quiz restarted with reshuffled questions`);
+  };
+
   // Auto-validation effect - triggers when answers are complete
   useEffect(() => {
     if (questions.length === 0 || feedback) return; // Don't validate if no questions or already showing feedback
@@ -797,7 +823,7 @@ const Money = ({ topic, user, navigateTo }) => {
         questionDetails={questionDetails}
         studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
         onBackToDashboard={() => navigateTo('dashboard')}
-        onTryAgain={() => window.location.reload()}
+        onTryAgain={restartQuiz}
       />
     );
   }

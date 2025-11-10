@@ -756,17 +756,19 @@
 .audio-instruction {
   text-align: center;
   margin-bottom: 20px;
-  padding: 15px;
+  padding: 20px 25px;
   background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-  border-radius: 15px;
-  border: 2px solid #2196f3;
+  border-radius: 16px;
+  border-left: 6px solid #2196f3;
+  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.2);
 }
 
 .audio-instruction p {
   margin: 0;
-  font-size: 16px;
-  font-weight: bold;
-  color: #1976d2;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1565c0;
+  line-height: 1.4;
 }
 
 .audio-description {
@@ -981,9 +983,15 @@
 
 .sequencing-instructions {
   margin-bottom: 20px;
-  font-size: 16px;
-  color: #333;
-  font-weight: bold;
+  padding: 20px 25px;
+  font-size: 20px;
+  color: #1B5E20;
+  font-weight: 600;
+  background: linear-gradient(135deg, #E8F5E8, #C8E6C9);
+  border-radius: 16px;
+  border-left: 6px solid #4CAF50;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.2);
+  line-height: 1.4;
 }
 
 .sequencing-container {

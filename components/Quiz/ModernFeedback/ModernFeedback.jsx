@@ -206,6 +206,9 @@ const ModernFeedback = ({
               <div className="mistakes-count">
                 {incorrectQuestions.length} question{incorrectQuestions.length > 1 ? 's' : ''} to review
               </div>
+              <div className="adaptive-practice-hint">
+                <strong>💪 Tip:</strong> Click "Practice Again" to focus on these specific topics!
+              </div>
             </div>
           </div>
         )}

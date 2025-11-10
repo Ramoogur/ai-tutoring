@@ -45,6 +45,22 @@ const Patterns = ({ topic, user, navigateTo }) => {
   const canvasRef = useRef(null);
   const tracingRef = useRef(null);
 
+  // Helper function to convert hex colors to readable names
+  const getColorName = (hexColor) => {
+    const colorMap = {
+      '#F44336': 'red',
+      '#2196F3': 'blue',
+      '#4CAF50': 'green',
+      '#FFEB3B': 'yellow',
+      '#FF9800': 'orange',
+      '#9C27B0': 'purple',
+      '#90A4AE': 'gray',
+      '#795548': 'brown',
+      '#FFC107': 'gold'
+    };
+    return colorMap[hexColor] || hexColor;
+  };
+
   // Get difficulty from user performance
   const getDifficultyFromAccuracy = (acc) => {
     if (acc >= 0.8) return 'hard';
@@ -456,11 +472,73 @@ const Patterns = ({ topic, user, navigateTo }) => {
     }
 
     // Show immediate feedback popup
+    // Format user answer based on question type
+    let formattedUserAnswer = '';
+    let formattedCorrectAnswer = '';
+    
+    switch (currentQuestion.type) {
+      case 'choose-correct-pattern':
+      case 'size-pattern':
+      case 'shape-pattern':
+      case 'number-pattern-next':
+      case 'number-pattern-missing':
+      case 'number-pattern-direction':
+      case 'describe-rule':
+      case 'scene-pattern':
+      case 'fix-the-mistake':
+        formattedUserAnswer = selectedOption !== null ? `Option ${selectedOption + 1}` : 'No answer';
+        formattedCorrectAnswer = currentQuestion.correct !== undefined ? `Option ${currentQuestion.correct + 1}` : 'See explanation';
+        break;
+      case 'complete-pattern-drag':
+        formattedUserAnswer = droppedItems.length > 0 
+          ? droppedItems.map(item => `${getColorName(item.color)} ${item.shape}`).join(', ')
+          : 'No items dropped';
+        formattedCorrectAnswer = currentQuestion.answer 
+          ? currentQuestion.answer.map(item => `${getColorName(item.color)} ${item.shape}`).join(', ')
+          : 'See pattern';
+        break;
+      case 'mixed-attribute-pattern':
+        if (selectedOption !== null && currentQuestion.options[selectedOption]) {
+          const selected = currentQuestion.options[selectedOption];
+          formattedUserAnswer = `${getColorName(selected.color)} ${selected.shape}`;
+        } else {
+          formattedUserAnswer = 'No answer';
+        }
+        if (currentQuestion.answer && currentQuestion.answer[0]) {
+          const correct = currentQuestion.answer[0];
+          formattedCorrectAnswer = `${getColorName(correct.color)} ${correct.shape}`;
+        } else {
+          formattedCorrectAnswer = 'See explanation';
+        }
+        break;
+      case 'picture-pattern':
+        formattedUserAnswer = droppedItems.filter(item => item).length > 0
+          ? droppedItems.filter(item => item).map(item => item.type).join(', ')
+          : 'No items dropped';
+        formattedCorrectAnswer = currentQuestion.answer
+          ? currentQuestion.answer.map(item => item.type).join(', ')
+          : 'See pattern';
+        break;
+      case 'complete-pattern-trace':
+        formattedUserAnswer = `Traced ${tracedShapes.length} shapes`;
+        formattedCorrectAnswer = `Trace ${currentQuestion.toTrace.length} shapes`;
+        break;
+      case 'create-your-own':
+        formattedUserAnswer = createdPattern.length > 0
+          ? createdPattern.map(item => `${item.shape}`).join(', ')
+          : 'No pattern created';
+        formattedCorrectAnswer = 'A valid repeating pattern';
+        break;
+      default:
+        formattedUserAnswer = 'Your answer';
+        formattedCorrectAnswer = 'See explanation';
+    }
+    
     setCurrentFeedbackData({
       isCorrect,
       question: currentQuestion,
-      userAnswer: selectedOption || `${droppedItems.length} items`,
-      correctAnswer: currentQuestion.correct || currentQuestion.answer || 'See explanation'
+      userAnswer: formattedUserAnswer,
+      correctAnswer: formattedCorrectAnswer
     });
     setShowImmediateFeedback(true);
   };
@@ -488,6 +566,55 @@ const Patterns = ({ topic, user, navigateTo }) => {
     setTracedShapes([]);
     setFeedback(null);
     setIsChecking(false);
+  };
+
+  // Restart quiz with updated difficulty and reshuffled questions
+  const restartQuiz = async () => {
+    console.log('🔄 Restarting Patterns quiz...');
+    
+    // Reset all state
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setShowResult(false);
+    setFeedback(null);
+    setQuestionDetails([]);
+    setTotalTimeSpent(0);
+    resetQuestionState();
+
+    // Fetch updated difficulty from database
+    let updatedDifficulty = 'easy';
+    try {
+      const { data: stats, error } = await supabase
+        .from('StudentTopicStats')
+        .select('current_difficulty')
+        .eq('student_id', user.id)
+        .eq('topic_id', topic.id)
+        .maybeSingle();
+      
+      if (!error && stats && stats.current_difficulty) {
+        updatedDifficulty = stats.current_difficulty;
+        console.log(`📊 Fetched updated difficulty: ${updatedDifficulty}`);
+      } else {
+        console.log('ℹ️ No saved difficulty found, using default: easy');
+      }
+    } catch (error) {
+      console.error('Error fetching difficulty:', error);
+    }
+    
+    setDifficulty(updatedDifficulty);
+
+    // Initialize new AI session
+    aiController.startQuizSession(topic.name, user);
+
+    // Get and shuffle questions for the updated difficulty
+    const difficultyQuestions = patternsQuestions[updatedDifficulty] || patternsQuestions.easy;
+    const shuffledQuestions = [...difficultyQuestions].sort(() => Math.random() - 0.5);
+    const selectedQuestions = shuffledQuestions.slice(0, 5);
+    
+    setQuestions(selectedQuestions);
+    setQuestionStartTime(Date.now());
+    
+    console.log(`✅ Quiz restarted at ${updatedDifficulty} difficulty with ${selectedQuestions.length} new questions`);
   };
 
   const finishQuiz = async () => {
@@ -549,7 +676,6 @@ const Patterns = ({ topic, user, navigateTo }) => {
             correct_answers: score,
             current_difficulty: nextDifficulty,
             last_accuracy: sessionAccuracy,
-            created_at: new Date().toISOString(),
             last_attempted: new Date().toISOString()
           });
 
@@ -645,7 +771,7 @@ const Patterns = ({ topic, user, navigateTo }) => {
         questionDetails={questionDetails}
         studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
         onBackToDashboard={() => navigateTo('dashboard')}
-        onTryAgain={() => window.location.reload()}
+        onTryAgain={restartQuiz}
       />
     );
   }

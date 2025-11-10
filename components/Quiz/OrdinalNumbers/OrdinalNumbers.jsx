@@ -143,6 +143,97 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
     })();
   }, [topic, user]);
 
+  // Restart quiz with updated difficulty and reshuffled questions
+  const restartQuiz = async () => {
+    console.log('🔄 Restarting Ordinal Numbers quiz...');
+    
+    // Reset all state
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setShowResult(false);
+    setFeedback(null);
+    setAiFeedback(null);
+    setSelectedOption(null);
+    setDraggedItem(null);
+    setDroppedItems({});
+    setMatchedPairs({});
+    setTextInput('');
+    setMultipleInputs({});
+    setColoredItems({});
+    setCircledItems({});
+    setRaceOrder([]);
+    setPodiumSlots({});
+    setQuestionDetails([]);
+    setTotalTimeSpent(0);
+    setIsChecking(false);
+
+    // Fetch updated difficulty from database
+    let updatedDifficulty = 'easy';
+    try {
+      const { data: stats, error } = await supabase
+        .from('StudentTopicStats')
+        .select('current_difficulty')
+        .eq('student_id', user.id)
+        .eq('topic_id', topic.id)
+        .maybeSingle();
+      
+      if (!error && stats && stats.current_difficulty) {
+        updatedDifficulty = stats.current_difficulty;
+        console.log(`📊 Fetched updated difficulty: ${updatedDifficulty}`);
+      } else {
+        console.log('ℹ️ No saved difficulty found, using default: easy');
+      }
+    } catch (error) {
+      console.error('Error fetching difficulty:', error);
+    }
+    
+    setDifficulty(updatedDifficulty);
+
+    // Select and shuffle questions based on difficulty
+    let selectedQuestions = [];
+    const questionPool = ordinalNumbersQuestions[updatedDifficulty] || ordinalNumbersQuestions.easy;
+    
+    if (updatedDifficulty === 'easy') {
+      selectedQuestions = questionPool.slice(0, 5);
+    } else if (updatedDifficulty === 'medium') {
+      selectedQuestions = [
+        ...ordinalNumbersQuestions.easy.slice(0, 2),
+        ...ordinalNumbersQuestions.medium.slice(0, 3)
+      ];
+    } else {
+      selectedQuestions = [
+        ...ordinalNumbersQuestions.medium.slice(0, 2),
+        ...ordinalNumbersQuestions.hard.slice(0, 3)
+      ];
+    }
+    
+    // Shuffle for variety
+    selectedQuestions = selectedQuestions.sort(() => Math.random() - 0.5);
+    setQuestions(selectedQuestions);
+    
+    // Set starting point for first question and pre-shuffle if needed
+    if (selectedQuestions.length > 0) {
+      setStartingPoint(selectedQuestions[0].starting_point || 'left');
+      setQuestionStartTime(Date.now());
+      
+      // Pre-shuffle all matching questions once
+      const shuffledData = {};
+      selectedQuestions.forEach((question, index) => {
+        if (question.question_type === 'match_words_symbols') {
+          const shuffledWords = [...question.pairs].sort(() => Math.random() - 0.5);
+          const shuffledSymbols = [...question.pairs].sort(() => Math.random() - 0.5);
+          shuffledData[index] = {
+            shuffledWords,
+            shuffledSymbols
+          };
+        }
+      });
+      setShuffledQuestionData(shuffledData);
+    }
+    
+    console.log(`✅ Quiz restarted at ${updatedDifficulty} difficulty with ${selectedQuestions.length} new questions`);
+  };
+
   // Simple feedback without ChatGPT (to avoid API key issues)
   const getChatGPTFeedback = async (question, userAnswer, correctAnswer, startingPoint) => {
     // Generate simple feedback based on correctness
@@ -783,7 +874,7 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
         questionDetails={questionDetails}
         studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
         onBackToDashboard={() => navigateTo('dashboard')}
-        onTryAgain={() => window.location.reload()}
+        onTryAgain={restartQuiz}
       />
     );
   }

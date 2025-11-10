@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
 import { aiController } from '../../../utils/aiController';
 import { aiTutor } from '../../../utils/aiTutor';
-import questionService from './questionService';
+import numbersCountingQuestions, { getQuestionsByDifficulty, getQuestionsByType } from '../../../data/numbersCountingQuestions';
 import TTSButton from '../TTSButton';
 import TranslationButton from '../TranslationButton';
 import translationService from '../../../utils/translationService';
@@ -25,13 +25,214 @@ const numberPaths = {
   1: 'M50,20 L50,80',
   2: 'M20,20 L80,20 L80,50 L20,80 L80,80',
   3: 'M20,20 L80,20 L50,50 L80,80 L20,80',
-  // Add more as needed
+  4: 'M70,20 L70,60 M30,60 L90,60 M70,30 L70,90',
+  5: 'M80,20 L30,20 L30,50 L70,50 L70,80 L30,80',
+  6: 'M70,20 L30,20 L30,80 L70,80 L70,50 L30,50',
+  7: 'M20,20 L80,20 L50,80',
+  8: 'M50,20 L30,35 L30,50 L50,65 L70,50 L70,35 L50,20 M50,65 L30,80 L70,80 L50,65',
+  9: 'M70,20 L30,20 L30,50 L70,50 L70,80',
+  10: 'M30,20 L30,80 M60,20 L50,20 L50,50 L80,50 L80,80 L50,80',
+  0: 'M50,20 L30,30 L30,70 L50,80 L70,70 L70,30 L50,20'
 };
 
 const wordPaths = {
   one: 'M20,50 L80,50',
-  two: 'M20,20 L80,20 L20,80 L80,80',
-  // Add more as needed
+  two: 'M20,20 L80,20 L50,50 L20,80 L80,80',
+  three: 'M20,20 L70,20 L50,50 L70,80 L20,80',
+  four: 'M30,20 L30,50 L70,50 M70,20 L70,80',
+  five: 'M70,20 L30,20 L30,50 L60,50 L60,80 L30,80',
+  six: 'M60,20 L30,20 L30,80 L60,80 L60,50 L30,50',
+  seven: 'M20,20 L70,20 L40,80',
+  eight: 'M40,20 L25,35 L25,50 L40,65 L60,50 L60,35 L40,20 M40,65 L25,80 L60,80 L40,65',
+  nine: 'M60,20 L30,20 L30,50 L60,50 L60,80',
+  ten: 'M25,20 L25,80 M45,20 L45,50 L75,50 L75,80 L45,80',
+  zero: 'M40,20 L25,30 L25,70 L40,80 L60,70 L60,30 L40,20'
+};
+
+// Parse SVG path to key points for validation
+const parseSVGPath = (pathString) => {
+  const points = [];
+  const commands = pathString.match(/[ML][^ML]*/g) || [];
+  
+  commands.forEach(cmd => {
+    const coords = cmd.slice(1).trim().split(/[\s,]+/).map(Number);
+    if (coords.length >= 2) {
+      points.push({ x: coords[0], y: coords[1] });
+    }
+  });
+  
+  return points;
+};
+
+// Normalize points to a 0-100 scale
+const normalizePoints = (points, canvasWidth, canvasHeight) => {
+  if (points.length === 0) return [];
+  
+  return points.map(p => ({
+    x: (p.x / canvasWidth) * 100,
+    y: (p.y / canvasHeight) * 100
+  }));
+};
+
+// Calculate distance between two points
+const distance = (p1, p2) => {
+  return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+};
+
+// Optional: Validate tracing using ChatGPT Vision API (for more accurate validation)
+const validateTracingWithChatGPT = async (canvasElement, targetNumber, targetType = 'number') => {
+  try {
+    // Convert canvas to base64 image
+    const imageData = canvasElement.toDataURL('image/png');
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY || ''}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Analyze this handwriting tracing attempt. The student was asked to trace the ${targetType} "${targetNumber}". 
+                
+Rate the tracing on a scale of 0-100 based on:
+1. Completeness (did they trace the full shape?)
+2. Accuracy (how closely did they follow the guide?)
+3. Recognizability (can you identify what they traced?)
+
+Respond ONLY with a JSON object in this format:
+{
+  "isCorrect": true/false,
+  "accuracy": 0-100,
+  "reason": "brief feedback message for a 6-year-old student"
+}`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: imageData
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 150
+      })
+    });
+    
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '{}';
+    
+    // Parse JSON response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    
+    // Fallback if API fails
+    return null;
+  } catch (error) {
+    console.error('ChatGPT tracing validation error:', error);
+    return null;
+  }
+};
+
+// Validate tracing by comparing with expected path
+const validateTracing = (tracedPath, expectedPathString, canvasWidth = 200, canvasHeight = 120) => {
+  // Must have minimum points
+  if (tracedPath.length < 10) {
+    return {
+      isCorrect: false,
+      accuracy: 0,
+      reason: 'Not enough tracing - trace the complete shape'
+    };
+  }
+  
+  // Parse expected path
+  const expectedPoints = parseSVGPath(expectedPathString);
+  if (expectedPoints.length === 0) {
+    // Fallback if no expected path defined
+    return {
+      isCorrect: tracedPath.length > 15,
+      accuracy: tracedPath.length > 15 ? 0.7 : 0.3,
+      reason: tracedPath.length > 15 ? 'Good effort' : 'Try tracing more carefully'
+    };
+  }
+  
+  // Normalize both paths
+  const normalizedTraced = normalizePoints(tracedPath, canvasWidth, canvasHeight);
+  const normalizedExpected = expectedPoints.map(p => ({ x: p.x, y: p.y }));
+  
+  // Sample points from traced path to compare (take every 5th point to reduce computation)
+  const sampledTraced = normalizedTraced.filter((_, i) => i % 5 === 0);
+  
+  // Calculate how close the traced path is to the expected path
+  let totalDistance = 0;
+  let pointsChecked = 0;
+  
+  sampledTraced.forEach(tracedPoint => {
+    // Find closest expected point
+    let minDist = Infinity;
+    normalizedExpected.forEach(expectedPoint => {
+      const dist = distance(tracedPoint, expectedPoint);
+      if (dist < minDist) {
+        minDist = dist;
+      }
+    });
+    totalDistance += minDist;
+    pointsChecked++;
+  });
+  
+  const averageDistance = totalDistance / pointsChecked;
+  
+  // Calculate coverage - did they trace near all key points?
+  let coverage = 0;
+  normalizedExpected.forEach(expectedPoint => {
+    const hasNearbyTraced = sampledTraced.some(tracedPoint => 
+      distance(tracedPoint, expectedPoint) < 20 // Within 20 units
+    );
+    if (hasNearbyTraced) coverage++;
+  });
+  const coverageRatio = coverage / normalizedExpected.length;
+  
+  // Calculate accuracy score (0-1)
+  // Lower average distance = better accuracy
+  const distanceScore = Math.max(0, 1 - (averageDistance / 50));
+  const accuracy = (distanceScore * 0.6) + (coverageRatio * 0.4);
+  
+  // Consider it correct if accuracy > 0.55 (55%)
+  const isCorrect = accuracy > 0.55;
+  
+  let reason = '';
+  if (!isCorrect) {
+    if (coverageRatio < 0.5) {
+      reason = 'You missed some parts - try tracing the complete shape';
+    } else if (distanceScore < 0.4) {
+      reason = 'Try to follow the dotted lines more carefully';
+    } else {
+      reason = 'Good try! Trace more slowly and carefully';
+    }
+  } else {
+    if (accuracy > 0.8) {
+      reason = 'Excellent tracing!';
+    } else if (accuracy > 0.65) {
+      reason = 'Good job!';
+    } else {
+      reason = 'Nice effort!';
+    }
+  }
+  
+  return {
+    isCorrect,
+    accuracy: Math.round(accuracy * 100),
+    reason
+  };
 };
 
 const NumbersCounting = ({ topic, user, navigateTo }) => {
@@ -44,6 +245,10 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
   const [showResult, setShowResult] = useState(false);
   const [difficulty, setDifficulty] = useState('easy');
   const [feedback, setFeedback] = useState(null);
+  
+  // Adaptive practice: track question types to focus on
+  const [focusedQuestionTypes, setFocusedQuestionTypes] = useState([]);
+  const [calculatedNextDifficulty, setCalculatedNextDifficulty] = useState(null);
   
   // Answer states for different question types
   const [userAnswer, setUserAnswer] = useState('');
@@ -64,11 +269,6 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
   const [aiFeedback, setAiFeedback] = useState(null);
   const [totalTimeSpent, setTotalTimeSpent] = useState(0);
   const [questionDetails, setQuestionDetails] = useState([]);
-  
-  // GPT integration states
-  const [useGPTQuestions, setUseGPTQuestions] = useState(true);
-  const [gptGenerating, setGptGenerating] = useState(false);
-  const [questionSource, setQuestionSource] = useState('static'); // 'gpt' or 'static'
   
   // Translation states
   const [isFrench, setIsFrench] = useState(false);
@@ -155,48 +355,54 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     })();
   }, [topic, user]);
 
-  const initializeQuiz = async (difficultyLevel = difficulty) => {
+  const initializeQuiz = async (difficultyLevel = difficulty, focusTypes = []) => {
     setIsLoading(true);
-    setGptGenerating(useGPTQuestions);
     
     let selectedQuestions = [];
     
     try {
-      console.log('🤖 Generating dynamic questions with GPT-4o...');
-      
-      // Generate questions using GPT service only - force GPT generation
-      selectedQuestions = await questionService.getQuestions(
-        'numbers_counting', 
-        difficultyLevel, 
-        5, 
-        true // Always use GPT
-      );
-      
-      if (selectedQuestions.length > 0) {
-        setQuestionSource('gpt');
-        console.log(`✅ GPT generated ${selectedQuestions.length} dynamic questions`);
+      // Check if we should create a focused practice quiz
+      if (focusTypes && focusTypes.length > 0) {
+        console.log(`🎯 Creating focused practice quiz for types: ${focusTypes.join(', ')}`);
+        
+        // Get questions specifically for the weak areas
+        selectedQuestions = getQuestionsByType(difficultyLevel, focusTypes, 5);
+        
+        if (selectedQuestions.length > 0) {
+          console.log(`✅ Selected ${selectedQuestions.length} focused practice questions`);
+        } else {
+          // Fallback to regular questions if no focused questions available
+          console.log('⚠️ No focused questions found, using regular questions');
+          selectedQuestions = getQuestionsByDifficulty(difficultyLevel, 5);
+        }
       } else {
-        throw new Error('GPT returned no questions');
+        console.log(`📚 Loading static questions for ${difficultyLevel} level...`);
+        
+        // Get regular shuffled questions from static pool
+        selectedQuestions = getQuestionsByDifficulty(difficultyLevel, 5);
+        
+        if (selectedQuestions.length > 0) {
+          console.log(`✅ Selected ${selectedQuestions.length} static questions`);
+        } else {
+          throw new Error('No questions available for this difficulty level');
+        }
       }
     } catch (error) {
-      console.error('❌ Question generation failed:', error.message);
-      setQuestionSource('error');
+      console.error('❌ Question loading failed:', error.message);
       
-      // Show error message to user - no fallback to static questions
+      // Show error message to user
       setFeedback({
         type: 'error',
-        message: 'Unable to generate questions with GPT. Please check your internet connection and API key.',
+        message: 'Unable to load questions. Please try again.',
         details: error.message
       });
       
-      // Return empty to prevent quiz from starting with static questions
       selectedQuestions = [];
       setIsLoading(false);
       return;
     }
     
     setQuestions(selectedQuestions);
-    setGptGenerating(false);
     
     // Start tracking the first question with AI
     if (selectedQuestions.length > 0) {
@@ -204,7 +410,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
       setQuestionStartTime(questionTrackingData.startTime);
     }
     
-    setTimeout(() => setIsLoading(false), 1500);
+    setTimeout(() => setIsLoading(false), 500);
   };
 
   // Get student performance profile for adaptive questions
@@ -414,11 +620,37 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
 
   const addDrawnObject = (e) => {
     const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    if (!canvas) return;
     
     const question = getCurrentQuestion();
+    const targetCount = question.count || parseInt(question.answer) || 0;
+    
+    // Prevent drawing more than required
+    if (drawnObjects.length >= targetCount) {
+      console.log(`Already drew ${targetCount} objects. Clear to draw more.`);
+      return;
+    }
+    
+    // Get canvas position and calculate grid-based placement
+    const rect = canvas.getBoundingClientRect();
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    
+    // Calculate grid layout based on target count
+    const cols = Math.ceil(Math.sqrt(targetCount));
+    const rows = Math.ceil(targetCount / cols);
+    const cellWidth = canvasWidth / cols;
+    const cellHeight = canvasHeight / rows;
+    
+    // Determine which grid cell this object goes in
+    const currentIndex = drawnObjects.length;
+    const row = Math.floor(currentIndex / cols);
+    const col = currentIndex % cols;
+    
+    // Center the object in its grid cell
+    const x = (col * cellWidth) + (cellWidth / 2);
+    const y = (row * cellHeight) + (cellHeight / 2);
+    
     const newObject = {
       id: Date.now() + Math.random(),
       x,
@@ -448,7 +680,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
   };
 
   // Answer checking with AI integration
-  const checkAnswer = () => {
+  const checkAnswer = async () => {
     if (isChecking) return;
     setIsChecking(true);
     
@@ -462,12 +694,54 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     
     switch (question.type) {
       case 'tracing':
-        isCorrect = tracedPath.length > 10;
-        userResponse = `traced ${tracedPath.length} points`;
-        if (!isCorrect) {
-          errorType = 'incomplete_tracing';
-          detailedFeedback = 'Try to trace the complete shape or number';
+        // Get the expected path for this tracing question
+        const expectedPath = question.targetType === 'number' 
+          ? numberPaths[question.target] 
+          : wordPaths[question.target];
+        
+        let tracingValidation;
+        
+        // Try ChatGPT validation first if API key is available
+        const useChatGPTValidation = import.meta.env.VITE_OPENAI_API_KEY && 
+                                     import.meta.env.VITE_USE_CHATGPT_TRACING_VALIDATION === 'true';
+        
+        if (useChatGPTValidation && tracingCanvasRef.current) {
+          console.log('🤖 Using ChatGPT Vision API for tracing validation...');
+          try {
+            const chatGPTResult = await validateTracingWithChatGPT(
+              tracingCanvasRef.current, 
+              question.target, 
+              question.targetType
+            );
+            
+            if (chatGPTResult) {
+              tracingValidation = chatGPTResult;
+              console.log('✅ ChatGPT validation successful:', chatGPTResult);
+            } else {
+              // Fallback to algorithm validation
+              console.log('⚠️ ChatGPT validation failed, using algorithm...');
+              tracingValidation = validateTracing(tracedPath, expectedPath, 200, 120);
+            }
+          } catch (error) {
+            console.error('❌ ChatGPT validation error:', error);
+            tracingValidation = validateTracing(tracedPath, expectedPath, 200, 120);
+          }
+        } else {
+          // Use algorithm-based validation
+          tracingValidation = validateTracing(tracedPath, expectedPath, 200, 120);
         }
+        
+        isCorrect = tracingValidation.isCorrect;
+        userResponse = `traced with ${tracingValidation.accuracy}% accuracy`;
+        
+        if (!isCorrect) {
+          errorType = 'poor_tracing';
+          detailedFeedback = tracingValidation.reason;
+        } else {
+          detailedFeedback = tracingValidation.reason;
+        }
+        
+        console.log(`📝 Tracing validation: ${isCorrect ? 'Correct' : 'Incorrect'} - Accuracy: ${tracingValidation.accuracy}% - ${tracingValidation.reason}`);
         break;
         
       case 'counting':
@@ -696,6 +970,77 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     }
   };
 
+  // Handle Practice Again with adaptive focus
+  const handlePracticeAgain = async () => {
+    console.log('🔄 Starting adaptive practice session...');
+    
+    // Analyze which question types the student got wrong
+    const incorrectQuestions = questionDetails.filter(q => !q.correct);
+    const incorrectTypes = [...new Set(incorrectQuestions.map(q => q.questionType))];
+    
+    console.log(`📊 Student struggled with: ${incorrectTypes.join(', ')}`);
+    console.log(`📝 Incorrect questions: ${incorrectQuestions.length} / ${questionDetails.length}`);
+    
+    // Fetch updated difficulty from database to ensure consistency
+    let practiceLevel = difficulty;
+    try {
+      const { data: stats, error } = await supabase
+        .from('StudentTopicStats')
+        .select('current_difficulty')
+        .eq('student_id', user.id)
+        .eq('topic_id', topic.id)
+        .maybeSingle();
+      
+      if (!error && stats && stats.current_difficulty) {
+        practiceLevel = stats.current_difficulty;
+        console.log(`📊 Fetched updated difficulty from database: ${practiceLevel}`);
+      } else {
+        // Fallback to calculated difficulty or current
+        practiceLevel = calculatedNextDifficulty || difficulty;
+        console.log(`ℹ️ Using fallback difficulty: ${practiceLevel}`);
+      }
+    } catch (error) {
+      console.error('Error fetching difficulty:', error);
+      practiceLevel = calculatedNextDifficulty || difficulty;
+    }
+    
+    const difficultyChanged = practiceLevel !== difficulty;
+    
+    if (difficultyChanged) {
+      console.log(`📈 Level change! Moving from ${difficulty} → ${practiceLevel}`);
+      setDifficulty(practiceLevel); // Update difficulty state
+    } else {
+      console.log(`📊 Continuing at ${practiceLevel} level`);
+    }
+    
+    // Reset quiz state
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setShowResult(false);
+    setFeedback(null);
+    setAiFeedback(null);
+    setQuestionDetails([]);
+    setAnswerHistory([]);
+    setTotalTimeSpent(0);
+    setCalculatedNextDifficulty(null); // Reset for next session
+    resetAnswerStates();
+    
+    // Initialize new AI session
+    aiController.startQuizSession(topic.name, user);
+    
+    // If student made mistakes, create focused practice with reshuffled questions
+    if (incorrectTypes.length > 0) {
+      setFocusedQuestionTypes(incorrectTypes);
+      await initializeQuiz(practiceLevel, incorrectTypes); // Use new difficulty with focused types
+      console.log(`🎯 Created focused practice quiz at ${practiceLevel} level for: ${incorrectTypes.join(', ')}`);
+    } else {
+      // Perfect score - continue with regular quiz with reshuffled questions
+      setFocusedQuestionTypes([]);
+      await initializeQuiz(practiceLevel); // Use new difficulty
+      console.log(`⭐ Perfect score! Creating regular practice quiz at ${practiceLevel} level with reshuffled questions`);
+    }
+  };
+
 
   // Calculate next session difficulty based on performance
   const calculateNextSessionDifficulty = (accuracy, currentDiff) => {
@@ -867,7 +1212,6 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
 
   const renderTracingQuestion = (question) => (
     <div className="tracing-container">
-      <h3>{question.question}</h3>
       <div className="tracing-area">
         <svg width="200" height="120" className="tracing-guide">
           <path
@@ -895,7 +1239,6 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
 
   const renderCountingQuestion = (question) => (
     <div className="counting-container">
-      <h3>{question.question}</h3>
       <div className="objects-grid">
         {Array.from({ length: question.count }, (_, i) => (
           <div key={i} className="counting-object">
@@ -904,8 +1247,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
         ))}
       </div>
       <div className="input-instruction">
-        <p><strong>{isFrench ? (translatedUITexts['Enter your answer below:'] || 'Entrez votre réponse ci-dessous:') : 'Enter your answer below:'}</strong></p>
-        <p>{isFrench ? `${translatedUITexts['Count the'] || 'Comptez les'} ${question.objects}s ${translatedUITexts['s above and type the number'] || 'ci-dessus et tapez le nombre'}` : `Count the ${question.objects}s above and type the number`}</p>
+        <p>{isFrench ? 'Tapez votre réponse dans la boîte ci-dessous' : 'Type your answer in the box below'}</p>
       </div>
       <input
         type="number"
@@ -919,51 +1261,96 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     </div>
   );
 
-  const renderDrawingQuestion = (question) => (
-    <div className="drawing-container">
-      <h3>{question.question}</h3>
-      <div className="drawing-info">
-        <p>{isFrench ? `${translatedUITexts['Click on the canvas to draw'] || 'Cliquez sur le canevas pour dessiner'} ${question.count} ${question.target}s` : `Click on the canvas to draw ${question.count} ${question.target}s`}</p>
-        <p>{isFrench ? `${translatedUITexts['Objects drawn:'] || 'Objets dessinés:'} ${drawnObjects.length}` : `Objects drawn: ${drawnObjects.length}`}</p>
-      </div>
-      <canvas
-        ref={canvasRef}
-        width="400"
-        height="200"
-        className="drawing-canvas"
-        onClick={addDrawnObject}
-      />
-      <div className="drawing-objects">
-        {drawnObjects.map((obj, index) => (
-          <span key={obj.id} className="drawn-object" style={{ left: obj.x, top: obj.y }}>
-            {countingObjects[obj.type] || '⭕'}
-          </span>
-        ))}
-      </div>
-      <button onClick={clearDrawing} className="clear-btn">{isFrench ? (translatedUITexts['Clear'] || 'Effacer') : 'Clear'}</button>
-      {question.type === 'word_problem' && (
-        <div>
-          <div className="input-instruction">
-            <p><strong>{isFrench ? (translatedUITexts['Enter your answer below:'] || 'Entrez votre réponse:') : 'Enter your answer:'}</strong></p>
-            <p>{isFrench ? 'Tapez le nombre total après avoir résolu le problème' : 'Type the total number after solving the problem'}</p>
-          </div>
-          <input
-            type="number"
-            value={userAnswer}
-            onChange={(e) => setUserAnswer(e.target.value)}
-            placeholder={isFrench ? (translatedUITexts['Enter total number (0-10)'] || 'Entrez le nombre total (0-10)') : 'Enter total number (0-10)'}
-            className="number-input"
-            min="0"
-            max="10"
-          />
+  const renderDrawingQuestion = (question) => {
+    const targetCount = question.count || parseInt(question.answer) || 0;
+    const isComplete = drawnObjects.length === targetCount;
+    const isTooMany = drawnObjects.length > targetCount;
+    
+    return (
+      <div className="drawing-container">
+        <div className="input-instruction">
+          <p>
+            {isFrench 
+              ? `Cliquez dans la boîte verte pour dessiner ${targetCount} ${question.target || question.objects}` 
+              : `Click inside the green box to draw ${targetCount} ${question.target || question.objects}`}
+          </p>
         </div>
-      )}
-    </div>
-  );
+        
+        <div className="drawing-info">
+          <p className={isComplete ? 'complete' : isTooMany ? 'too-many' : ''}>
+            {isFrench ? `${translatedUITexts['Objects drawn:'] || 'Objets dessinés:'} ${drawnObjects.length} / ${targetCount}` : `Objects drawn: ${drawnObjects.length} / ${targetCount}`}
+            {isComplete && <span className="success-icon"> ✓</span>}
+            {isTooMany && <span className="warning-icon"> ⚠</span>}
+          </p>
+        </div>
+        
+        <div className="canvas-wrapper" style={{ position: 'relative', display: 'inline-block' }}>
+          <canvas
+            ref={canvasRef}
+            width="400"
+            height="200"
+            className="drawing-canvas"
+            onClick={addDrawnObject}
+            style={{ 
+              cursor: drawnObjects.length >= targetCount ? 'not-allowed' : 'pointer',
+              opacity: drawnObjects.length >= targetCount ? 0.7 : 1
+            }}
+          />
+          <div className="drawing-objects" style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '400px',
+            height: '200px',
+            pointerEvents: 'none'
+          }}>
+            {drawnObjects.map((obj, index) => (
+              <span 
+                key={obj.id} 
+                className="drawn-object" 
+                style={{ 
+                  position: 'absolute',
+                  left: `${obj.x}px`, 
+                  top: `${obj.y}px`,
+                  transform: 'translate(-50%, -50%)',
+                  fontSize: '32px',
+                  animation: 'drawPop 0.3s ease'
+                }}
+              >
+                {countingObjects[obj.type] || '⭕'}
+              </span>
+            ))}
+          </div>
+        </div>
+        
+        <div style={{ marginTop: '10px' }}>
+          <button onClick={clearDrawing} className="clear-btn">
+            {isFrench ? (translatedUITexts['Clear'] || 'Effacer') : 'Clear'}
+          </button>
+        </div>
+        
+        {question.type === 'word_problem' && (
+          <div>
+            <div className="input-instruction" style={{ marginTop: '20px' }}>
+              <p>{isFrench ? 'Tapez votre réponse dans la boîte ci-dessous' : 'Type your answer in the box below'}</p>
+            </div>
+            <input
+              type="number"
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              placeholder={isFrench ? (translatedUITexts['Enter total number (0-10)'] || 'Entrez le nombre total (0-10)') : 'Enter total number (0-10)'}
+              className="number-input"
+              min="0"
+              max="10"
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderMultipleChoiceQuestion = (question) => (
     <div className="multiple-choice-container">
-      <h3>{question.question}</h3>
       <div className="options-grid">
         {question.options.map((option, index) => (
           <button
@@ -990,12 +1377,6 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     
     return (
       <div className="matching-container">
-        <h3>{question.question}</h3>
-        
-        <div className="matching-instruction">
-          <p><strong>{isFrench ? (translatedUITexts['Instructions:'] || 'Instructions:') : 'Instructions:'}</strong> {isFrench ? `${translatedUITexts['Count the'] || 'Comptez les'} ${objectType}s ${translatedUITexts['s above and type the number'] || 'ci-dessous et cliquez sur le bon nombre'}` : `Count the ${objectType}s below and click the correct number`}</p>
-        </div>
-        
         <div className="matching-area">
           {/* Show the objects to count */}
           <div className="objects-to-count">
@@ -1064,9 +1445,8 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     
     return (
       <div className="coloring-container">
-        <h3>{question.question}</h3>
         <div className="coloring-instruction">
-          <p>{isFrench ? `${translatedUITexts['Color exactly'] || 'Colorez exactement'} <strong>${targetCount}</strong> ${objectType}s. ${translatedUITexts['s. Click to color/uncolor.'] || 'Cliquez pour colorier/décolorier.'}` : `Color exactly <strong>${targetCount}</strong> ${objectType}s. Click to color/uncolor.`}</p>
+          <p>{isFrench ? 'Cliquez pour colorier ou décolorier' : 'Click to color or uncolor'}</p>
         </div>
         <div className="coloring-grid">
           {Array.from({ length: totalObjects }, (_, i) => (
@@ -1108,7 +1488,6 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
 
   const renderSequenceQuestion = (question) => (
     <div className="sequence-container">
-      <h3>{question.question}</h3>
       <div className="sequence-grid">
         {question.sequence.map((num, index) => (
           <div key={index} className="sequence-item">
@@ -1142,7 +1521,6 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     
     return (
       <div className="comparison-container">
-        <h3>{question.question}</h3>
         <div className="comparison-groups">
           <div className="group-a">
             <h4>Group A</h4>
@@ -1183,7 +1561,6 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     
     return (
       <div className="odd-one-out-container">
-        <h3>{question.question}</h3>
         <div className="items-grid">
           {items.map((item, index) => (
             <button
@@ -1195,7 +1572,6 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
             </button>
           ))}
         </div>
-        <p>{isFrench ? (translatedUITexts['Click on the item that doesn\'t belong with the others.'] || 'Cliquez sur l\'élément qui n\'appartient pas aux autres.') : 'Click on the item that doesn\'t belong with the others.'}</p>
       </div>
     );
   };
@@ -1217,7 +1593,6 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
 
   const renderWordProblemQuestion = (question) => (
     <div className="word-problem-container">
-      <h3>{question.question}</h3>
       <div className="problem-breakdown">
         <p>Started with: {question.initial} {question.target}s</p>
         <p>Got {question.added} more</p>
@@ -1233,7 +1608,6 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
       console.warn('Word completion question missing word property:', question);
       return (
         <div className="word-completion-container">
-          <h3>{question.question}</h3>
           <p>Error: This question is missing required data. Please try another question.</p>
         </div>
       );
@@ -1254,7 +1628,6 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     
     return (
       <div className="word-completion-container">
-        <h3>{question.question}</h3>
         <div className="word-display">
           {question.word.split('').map((letter, index) => (
             <span key={index} className={`letter ${blanks.includes(index) ? 'blank' : ''}`}>
@@ -1266,7 +1639,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           type="text"
           value={userAnswer}
           onChange={(e) => setUserAnswer(e.target.value)}
-          placeholder={isFrench ? (translatedUITexts['Type the missing letters'] || 'Tapez les lettres manquantes') : 'Type the missing letters'}
+          placeholder={isFrench ? (translatedUITexts['Type the missing letters'] || 'Tapez les lettres manquantes') : 'Type the complete word'}
           className="word-input"
         />
       </div>
@@ -1312,17 +1685,10 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
         <div className="loading-screen">
           <div className="loading-content">
             <div className="loading-spinner"></div>
-            <h2> {isFrench ? (translatedUITexts['Preparing Numbers & Counting Quiz'] || 'Préparation du Quiz de Nombres et Comptage') : 'Preparing Numbers & Counting Quiz'}</h2>
-            {gptGenerating ? (
-              <p> {isFrench ? (translatedUITexts['GPT-4o is generating personalized questions...'] || 'GPT-4o génère des questions personnalisées...') : 'GPT-4o is generating personalized questions...'}</p>
-            ) : (
-              <p> {isFrench ? (translatedUITexts['AI is selecting personalized questions for you...'] || 'L\'IA sélectionne des questions personnalisées pour vous...') : 'AI is selecting personalized questions for you...'}</p>
-            )}
+            <h2>{isFrench ? (translatedUITexts['Preparing Numbers & Counting Quiz'] || 'Préparation du Quiz de Nombres et Comptage') : 'Preparing Numbers & Counting Quiz'}</h2>
+            <p>{isFrench ? 'L\'IA sélectionne des questions personnalisées pour vous...' : 'AI is selecting personalized questions for you...'}</p>
             <div className="loading-progress">
               <div className="progress-bar"></div>
-            </div>
-            <div className="question-source-indicator">
-              {questionSource === 'gpt' ? ' Dynamic Questions' : ' Static Questions'}
             </div>
           </div>
         </div>
@@ -1351,6 +1717,11 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
       difficultyChanged = true;
     }
     
+    // Store the calculated next difficulty for Practice Again
+    if (calculatedNextDifficulty !== nextDifficulty) {
+      setCalculatedNextDifficulty(nextDifficulty);
+    }
+    
     return (
       <ModernFeedback
         topicName="Numbers & Counting"
@@ -1364,7 +1735,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
         questionDetails={questionDetails}
         studentName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'}
         onBackToDashboard={() => navigateTo('dashboard')}
-        onTryAgain={() => window.location.reload()}
+        onTryAgain={handlePracticeAgain}
       />
     );
   }
