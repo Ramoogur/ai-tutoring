@@ -32,6 +32,26 @@ const MatchingGame = ({ topic, studentId, onComplete, onBack }) => {
     initializeGame();
   }, [topic]);
 
+  const isIconContent = (content) => {
+    if (typeof content !== 'string') return false;
+    const trimmed = content.trim();
+    if (!trimmed) return false;
+
+    const glyphs = Array.from(trimmed);
+    if (glyphs.length === 0 || glyphs.length > 3) return false;
+
+    return glyphs.every((glyph) => {
+      const codePoint = glyph.codePointAt(0);
+      if (!codePoint) return false;
+
+      const isEmojiSupplement = codePoint >= 0x1F000 && codePoint <= 0x1FAFF;
+      const isMiscSymbols = codePoint >= 0x2600 && codePoint <= 0x27BF;
+      const isTransportOrMap = codePoint >= 0x1F680 && codePoint <= 0x1F6FF;
+
+      return isEmojiSupplement || isMiscSymbols || isTransportOrMap;
+    });
+  };
+
   const initializeGame = async () => {
     setLoading(true);
     try {
@@ -445,7 +465,11 @@ const MatchingGame = ({ topic, studentId, onComplete, onBack }) => {
               }`}
               onClick={() => handleLeftClick(item)}
             >
-              <span className="item-content">{item.content}</span>
+              <span
+                className={`item-content ${isIconContent(item.content) ? 'icon-content' : ''}`}
+              >
+                {item.content}
+              </span>
               {userMatches[item.pairId] !== undefined && (
                 <span className="match-checkmark">🔗</span>
               )}
@@ -477,7 +501,11 @@ const MatchingGame = ({ topic, studentId, onComplete, onBack }) => {
                 }`}
                 onClick={() => handleRightClick(item)}
               >
-                <span className="item-content">{item.content}</span>
+                <span
+                  className={`item-content ${isIconContent(item.content) ? 'icon-content' : ''}`}
+                >
+                  {item.content}
+                </span>
                 {isMatched && (
                   <span className="match-checkmark">
                     🔗{matchCount > 1 ? ` ×${matchCount}` : ''}

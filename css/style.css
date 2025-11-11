@@ -69,7 +69,7 @@ body {
   width: 100%;
   max-width: none;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 48px;
   animation: fadeIn 0.5s ease;
 }
 
@@ -830,7 +830,7 @@ input:focus, select:focus {
 .dashboard {
   min-height: 100vh;
   background: linear-gradient(135deg, #F0F4FF 0%, #E8F5E9 100%);
-  padding: var(--spacing-lg, 32px) var(--spacing-md, 24px);
+  padding: var(--spacing-lg, 32px) var(--spacing-md, 12px);
   animation: fadeIn 0.8s ease;
   position: relative;
   overflow-x: hidden;
@@ -2805,16 +2805,23 @@ input:focus, select:focus {
   background: var(--bg-color);
 }
 
+.landing-page .container {
+  width: 100%;
+  max-width: 2800px;
+  margin: 0 auto;
+  padding: 0 72px;
+}
+
 /* ============================================
    HERO SECTION
    ============================================ */
 
 .hero-section {
   position: relative;
-  min-height: 90vh;
+  min-height: 100vh;
   display: flex;
   align-items: center;
-  padding: 80px 0 60px;
+  padding: 140px 0 120px;
   overflow: hidden;
   isolation: isolate;
 }
@@ -2883,10 +2890,15 @@ input:focus, select:focus {
 .hero-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 80px;
+  gap: 96px;
   align-items: center;
   position: relative;
   z-index: 1;
+  width: 100%;
+}
+
+.hero-content {
+  max-width: 520px;
 }
 
 .hero-content {
@@ -3047,7 +3059,7 @@ input:focus, select:focus {
 /* Hero Visual Section */
 .hero-visual {
   position: relative;
-  height: 600px;
+  height: 560px;
   opacity: 0;
   transform: translateY(30px);
   transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.2s;
@@ -3083,20 +3095,20 @@ input:focus, select:focus {
 }
 
 .card-1 {
-  top: 5%;
-  left: -5%;
+  top: 6%;
+  left: 2%;
   animation-delay: 0s;
 }
 
 .card-2 {
-  top: 50%;
+  top: 46%;
   right: 0%;
   animation-delay: 2s;
 }
 
 .card-3 {
-  bottom: 10%;
-  left: 10%;
+  bottom: 6%;
+  left: 12%;
   animation-delay: 4s;
 }
 
@@ -3246,7 +3258,8 @@ input:focus, select:focus {
 
 .section-header {
   text-align: center;
-  margin-bottom: 60px;
+  margin: 0 auto 60px;
+  max-width: 680px;
 }
 
 .section-title {
@@ -3267,12 +3280,13 @@ input:focus, select:focus {
 .demo-showcase {
   display: flex;
   justify-content: center;
+  align-items: center;
 }
 
 .demo-problem {
   background: white;
   border-radius: var(--border-radius-lg);
-  padding: 60px;
+  padding: 56px;
   box-shadow: var(--shadow-xl);
   max-width: 600px;
   width: 100%;
@@ -3371,6 +3385,7 @@ input:focus, select:focus {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 32px;
+  align-items: stretch;
 }
 
 .feature-card {
@@ -3469,6 +3484,7 @@ input:focus, select:focus {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 32px;
+  align-items: stretch;
 }
 
 .testimonial-card {

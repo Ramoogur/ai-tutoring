@@ -976,9 +976,10 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     });
     
     // Log difficulty adjustments
-    if (aiAnalysisResult.difficultyAdjustment) {
-      console.log(`🔄 AI adjusted difficulty to: ${aiAnalysisResult.newDifficulty}`);
-      setDifficulty(aiAnalysisResult.newDifficulty.toLowerCase());
+    if (aiAnalysisResult.difficultyAdjustment && aiAnalysisResult.newDifficulty) {
+      const suggestedDifficulty = aiAnalysisResult.newDifficulty.toLowerCase();
+      console.log(`🔄 AI suggested difficulty change to: ${suggestedDifficulty}`);
+      setCalculatedNextDifficulty(prev => prev || suggestedDifficulty);
     }
 
     // Set enhanced feedback with detailed error information
@@ -1131,13 +1132,37 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
 
   const finishQuiz = async () => {
     setShowResult(true);
-    const accuracy = score / questions.length;
-    const totalTime = Math.floor((Date.now() - questionStartTime) / 1000);
+    const questionTimeElapsed = questionStartTime ? (Date.now() - questionStartTime) : 0;
+    const totalTime = Math.floor(questionTimeElapsed / 1000);
     setTotalTimeSpent(totalTime);
+    
+    const sessionAccuracy = (score / Math.max(questions.length, 1)) * 100;
+    const manualDifficultyProgression = {
+      current: difficulty,
+      next: calculateNextSessionDifficulty(sessionAccuracy, difficulty),
+      reason: `Accuracy ${sessionAccuracy.toFixed(1)}%`
+    };
+    setCalculatedNextDifficulty(manualDifficultyProgression.next);
     
     // Complete AI session and get comprehensive feedback
     let aiSessionSummary = aiController.completeQuizSession();
     console.log('🎓 AI Session Summary:', aiSessionSummary);
+    
+    if (!aiSessionSummary || typeof aiSessionSummary !== 'object') {
+      aiSessionSummary = {
+        aiFeedback: {},
+        difficultyProgression: manualDifficultyProgression,
+        performance: sessionAccuracy,
+        currentStreak: 0,
+        duration: questionTimeElapsed
+      };
+    } else {
+      aiSessionSummary = {
+        ...aiSessionSummary,
+        difficultyProgression: manualDifficultyProgression
+      };
+      aiSessionSummary.aiFeedback = aiSessionSummary.aiFeedback || {};
+    }
     
     // Set AI feedback with session summary
     setAiFeedback({
@@ -1150,9 +1175,8 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     
     // Save comprehensive progress data to database
     try {
-      const sessionAccuracy = (score / questions.length) * 100;
-      const currentSessionDifficulty = aiSessionSummary?.difficultyProgression?.current || difficulty;
-      const nextSessionDifficulty = aiSessionSummary?.difficultyProgression?.next || difficulty;
+      const currentSessionDifficulty = manualDifficultyProgression.current;
+      const nextSessionDifficulty = manualDifficultyProgression.next;
       
       // 1. Update/Insert StudentTopicStats (overall progress)
       const statsData = {
@@ -1168,7 +1192,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
         best_streak: aiSessionSummary?.currentStreak || 0,
         progress_data: JSON.stringify({
           recentAccuracies: [sessionAccuracy], // Array to track trend
-          difficultyHistory: aiSessionSummary?.difficultyProgression || {},
+          difficultyHistory: manualDifficultyProgression,
           learningInsights: aiSessionSummary?.aiFeedback?.insights || [],
           achievements: aiSessionSummary?.aiFeedback?.achievements || [],
           errorPatterns: analyzeErrorPatterns(answerHistory),
@@ -1195,13 +1219,13 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
         questions_attempted: questions.length,
         correct_answers: score,
         accuracy_percentage: sessionAccuracy,
-        time_spent: Math.round((Date.now() - aiSessionSummary?.duration) / 1000) || 0,
+        time_spent: totalTime,
         next_difficulty: nextSessionDifficulty,
         difficulty_changed: currentSessionDifficulty !== nextSessionDifficulty,
         ai_feedback: JSON.stringify({
           encouragement: aiSessionSummary?.aiFeedback?.encouragement,
           suggestions: aiSessionSummary?.aiFeedback?.suggestions,
-          progressionReason: aiSessionSummary?.difficultyProgression?.reason
+          progressionReason: manualDifficultyProgression.reason
         }),
         question_details: JSON.stringify({
           questionTypes: questions.map(q => q.type),
@@ -1227,7 +1251,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
         console.log('✅ QuizSessions insert successful:', sessionResult);
       }
       
-      console.log(`📊 Results saved - Score: ${score}/${questions.length}, Accuracy: ${(accuracy*100).toFixed(1)}%`);
+      console.log(`📊 Results saved - Score: ${score}/${questions.length}, Accuracy: ${sessionAccuracy.toFixed(1)}%`);
       
     } catch (error) {
       console.error('❌ Error saving results:', error);

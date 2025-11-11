@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
 import { timeQuestions, timeColors, timeAssets } from './timeQuestions';
 import { aiController } from '../../../utils/aiController';
@@ -9,6 +9,7 @@ import translationService from '../../../utils/translationService';
 import ModernFeedback from '../ModernFeedback';
 import ImmediateFeedback from '../ImmediateFeedback';
 import './Time.css';
+import { synthesizeSpeech } from '../../../utils/googleSpeechService';
 
 const Time = ({ topic, user, navigateTo }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -29,12 +30,16 @@ const Time = ({ topic, user, navigateTo }) => {
   const [selectedColor, setSelectedColor] = useState(null);
   const [litTargets, setLitTargets] = useState(new Set());
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioError, setAudioError] = useState(null);
+  const [audioCache, setAudioCache] = useState({});
   const [aiStatus, setAiStatus] = useState(null);
   const [questionStartTime, setQuestionStartTime] = useState(null);
   const [aiFeedback, setAiFeedback] = useState(null);
   const [sessionData, setSessionData] = useState({ correct: 0, total: 0 });
   const [hasAnswered, setHasAnswered] = useState(false);
   const [textInput, setTextInput] = useState('');
+  const audioElementRef = useRef(null);
   
   // Translation states
   const [isFrench, setIsFrench] = useState(false);
@@ -172,6 +177,7 @@ const Time = ({ topic, user, navigateTo }) => {
     console.log('🔄 Restarting Time quiz...');
     
     // Reset all state
+    stopCurrentAudio();
     setCurrentQuestionIndex(0);
     setScore(0);
     setShowResult(false);
@@ -188,6 +194,10 @@ const Time = ({ topic, user, navigateTo }) => {
     setSelectedOption(null);
     setIsChecking(false);
     setSessionData({ correct: 0, total: 0 });
+    setAudioCache({});
+    setAudioError(null);
+    setAudioLoading(false);
+    setAudioPlaying(false);
 
     // Fetch updated difficulty from database
     let updatedDifficulty = 'easy';
@@ -605,146 +615,122 @@ const Time = ({ topic, user, navigateTo }) => {
     }
   };
 
-  const playAudioSound = () => {
+  const stopCurrentAudio = ({ resetState = true } = {}) => {
+    const existingAudio = audioElementRef.current;
+    if (existingAudio) {
+      try {
+        existingAudio.pause();
+        existingAudio.currentTime = 0;
+      } catch (error) {
+        console.warn('Unable to reset audio element:', error);
+      }
+    }
+    audioElementRef.current = null;
+    if (resetState) {
+      setAudioPlaying(false);
+    }
+  };
+
+  const getAudioPrompt = (question) => {
+    if (!question) return 'Listen carefully.';
+    if (question.sound === 'rooster_crow') {
+      return 'Cock-a-doodle-doo! Wake up with the morning rooster. When do you hear roosters crowing?';
+    }
+    if (question.sound === 'cricket_chirping') {
+      return 'Chirp chirp. The crickets are singing their nighttime lullaby. When do crickets make this sound?';
+    }
+    return question.soundDescription || question.question || 'Listen carefully.';
+  };
+
+  const getVoiceOverrides = (question) => {
+    if (!question) return {};
+    if (question.sound === 'rooster_crow') {
+      return {
+        voice: {
+          languageCode: 'en-US',
+          name: 'en-US-Neural2-D'
+        },
+        audioConfig: {
+          speakingRate: 0.9,
+          pitch: 2
+        }
+      };
+    }
+    if (question.sound === 'cricket_chirping') {
+      return {
+        voice: {
+          languageCode: 'en-US',
+          name: 'en-US-Neural2-E'
+        },
+        audioConfig: {
+          speakingRate: 0.95,
+          pitch: -1
+        }
+      };
+    }
+    return {};
+  };
+
+  const playAudioSound = async () => {
     const currentQuestion = questions[currentQuestionIndex];
     if (!currentQuestion || currentQuestion.type !== 'audio_visual') return;
-    
-    setAudioPlaying(true);
-    
+
+    if (audioLoading) {
+      return;
+    }
+
+    setAudioError(null);
+    setAudioLoading(true);
+
     try {
-      // Create audio based on the sound type
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      
-      if (currentQuestion.sound === 'rooster_crow') {
-        // Generate rooster crow sound simulation
-        playRoosterSound(audioContext);
-      } else if (currentQuestion.sound === 'cricket_chirping') {
-        // Generate cricket chirping sound simulation
-        playCricketSound(audioContext);
-      } else {
-        // Default notification sound
-        playDefaultSound(audioContext);
+      const cacheKey = currentQuestion.id;
+      let audioDataUrl = audioCache[cacheKey];
+
+      if (!audioDataUrl) {
+        const prompt = getAudioPrompt(currentQuestion);
+        const overrides = getVoiceOverrides(currentQuestion);
+        const audioContent = await synthesizeSpeech(prompt, overrides);
+        audioDataUrl = `data:audio/mp3;base64,${audioContent}`;
+        setAudioCache(prev => ({ ...prev, [cacheKey]: audioDataUrl }));
       }
-      
+
+      stopCurrentAudio();
+
+      const audioElement = new Audio(audioDataUrl);
+      audioElementRef.current = audioElement;
+
+      audioElement.onended = () => {
+        setAudioPlaying(false);
+        audioElementRef.current = null;
+      };
+
+      audioElement.onerror = (event) => {
+        console.error('Audio playback error:', event);
+        setAudioError('Unable to play the sound. Please try again.');
+        setAudioPlaying(false);
+        audioElementRef.current = null;
+      };
+
+      await audioElement.play();
+      setAudioPlaying(true);
     } catch (error) {
-      console.warn('Audio playback not supported:', error);
-      // Fallback: just show visual feedback
-      setTimeout(() => setAudioPlaying(false), 2000);
+      console.error('Failed to play synthesized audio:', error);
+      setAudioError(error.message || 'Unable to load the sound. Please try again.');
+      stopCurrentAudio();
+    } finally {
+      setAudioLoading(false);
     }
   };
-  
-  const playRoosterSound = (audioContext) => {
-    // Realistic rooster crow - distinctive "Cock-a-doodle-doo!" pattern
-    const createRoosterSyllable = (startTime, frequency, duration, volume = 0.2) => {
-      const oscillator1 = audioContext.createOscillator();
-      const oscillator2 = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      // Mix two oscillators for richer rooster sound
-      oscillator1.connect(gainNode);
-      oscillator2.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      // Primary frequency
-      oscillator1.frequency.setValueAtTime(frequency, startTime);
-      oscillator1.type = 'sawtooth';
-      
-      // Harmonic for richness
-      oscillator2.frequency.setValueAtTime(frequency * 0.5, startTime);
-      oscillator2.type = 'triangle';
-      
-      // Volume envelope
-      gainNode.gain.setValueAtTime(0, startTime);
-      gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
-      
-      oscillator1.start(startTime);
-      oscillator1.stop(startTime + duration);
-      oscillator2.start(startTime);
-      oscillator2.stop(startTime + duration);
-    };
-    
-    const baseTime = audioContext.currentTime;
-    
-    // "COCK" - sharp, high start
-    createRoosterSyllable(baseTime, 600, 0.3, 0.25);
-    
-    // "A" - quick transition
-    createRoosterSyllable(baseTime + 0.35, 400, 0.15, 0.15);
-    
-    // "DOO" - sustained middle note
-    createRoosterSyllable(baseTime + 0.55, 500, 0.4, 0.2);
-    
-    // "DLE" - quick dip
-    createRoosterSyllable(baseTime + 1.0, 350, 0.2, 0.15);
-    
-    // "DOO" - final flourish, higher pitch
-    createRoosterSyllable(baseTime + 1.25, 650, 0.5, 0.22);
-    
-    setTimeout(() => setAudioPlaying(false), 2000);
-  };
-  
-  const playCricketSound = (audioContext) => {
-    // Child-friendly cricket chirping - gentle nighttime sounds
-    const createChirp = (startTime, pitch) => {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      // Softer cricket frequency - not too high-pitched for children
-      oscillator.frequency.setValueAtTime(pitch, startTime);
-      oscillator.frequency.linearRampToValueAtTime(pitch * 1.1, startTime + 0.05);
-      oscillator.type = 'sine';
-      
-      // Very gentle volume for bedtime association
-      gainNode.gain.setValueAtTime(0, startTime);
-      gainNode.gain.linearRampToValueAtTime(0.05, startTime + 0.02); // Much quieter
-      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
-      
-      oscillator.start(startTime);
-      oscillator.stop(startTime + 0.15);
-    };
-    
-    // Create gentle cricket chorus with varying pitches
-    const basePitch = 1800; // Lower than before
-    for (let i = 0; i < 6; i++) {
-      const pitch = basePitch + (Math.random() * 400 - 200); // Vary pitch slightly
-      createChirp(audioContext.currentTime + i * 0.3, pitch);
-    }
-    
-    // Add a second layer of softer chirps
-    setTimeout(() => {
-      for (let i = 0; i < 4; i++) {
-        const pitch = basePitch + (Math.random() * 300 - 150);
-        createChirp(audioContext.currentTime + i * 0.4, pitch);
-      }
-    }, 800);
-    
-    setTimeout(() => setAudioPlaying(false), 2500);
-  };
-  
-  const playDefaultSound = (audioContext) => {
-    // Simple beep sound
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-    oscillator.type = 'sine';
-    
-    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.1);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.5);
-    
-    setTimeout(() => setAudioPlaying(false), 500);
-  };
+
+  useEffect(() => {
+    stopCurrentAudio();
+    setAudioError(null);
+    setAudioLoading(false);
+  }, [currentQuestionIndex]);
+
+  useEffect(() => () => {
+    stopCurrentAudio({ resetState: false });
+  }, []);
 
   const checkAnswer = async () => {
     if (isChecking) return;
@@ -1381,10 +1367,15 @@ const Time = ({ topic, user, navigateTo }) => {
             <button 
               className="audio-control"
               onClick={playAudioSound}
-              disabled={audioPlaying}
+              disabled={audioPlaying || audioLoading}
             >
-              {audioPlaying ? '🔊 Playing...' : '🔊 Play Sound'}
+              {audioLoading ? '⏳ Loading audio...' : audioPlaying ? '🔊 Playing...' : '🔊 Play Sound'}
             </button>
+            {audioError && (
+              <div className="audio-error">
+                {audioError}
+              </div>
+            )}
             <div className="audio-description">
               <strong>Sound:</strong> {currentQuestion.sound?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </div>

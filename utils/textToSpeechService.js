@@ -10,6 +10,8 @@ class TextToSpeechService {
       this.audioCache = new Map(); // Cache for audio to avoid repeated API calls
       this.isSpeaking = false;
       this.currentAudio = null;
+      this.currentAudioUrl = null;
+      this.currentSpeechToken = 0;
     }
   
     /**
@@ -84,7 +86,7 @@ class TextToSpeechService {
         pitch: 5.0,  // Range: -20.0 to 20.0 (increased for more child-like quality)
         // Much slower speaking rate for Grade 1 students (ages 6-7)
         // French needs to be even slower due to more complex pronunciation
-        speakingRate: isFrench ? 0.70 : 0.75,  // Range: 0.25 to 4.0 (0.70 = 30% slower, 0.75 = 25% slower)
+        speakingRate: isFrench ? 0.55 : 0.60,  // Further reduced speed for better comprehension
         volumeGainDb: 1.0  // Slightly louder for clarity
       };
     }
@@ -144,7 +146,7 @@ class TextToSpeechService {
      * @param {string} text - Text to speak
      * @param {string} lang - Language code (en-US or fr-FR)
      */
-    speakWithBrowserAPI(text, lang = 'en-US') {
+    speakWithBrowserAPI(text, lang = 'en-US', speechToken) {
       return new Promise((resolve, reject) => {
         // Check if browser supports speech synthesis
         if (!('speechSynthesis' in window)) {
@@ -167,7 +169,9 @@ class TextToSpeechService {
         utterance.volume = 1.0; // Full volume
         
         utterance.onend = () => {
-          this.isSpeaking = false;
+          if (this.currentSpeechToken === speechToken) {
+            this.isSpeaking = false;
+          }
           resolve();
         };
         
@@ -188,15 +192,19 @@ class TextToSpeechService {
      * @param {string} text - Text to speak
      */
     async speak(text) {
-      if (this.isSpeaking) {
-        this.stop(); // Stop current speech before starting new one
-      }
+      const speechToken = ++this.currentSpeechToken;
+      this.stopActivePlayback();
   
       // Try Google Cloud TTS first
       if (this.apiKey) {
         try {
           this.isSpeaking = true;
           const audioContent = await this.synthesizeSpeech(text);
+
+          if (this.currentSpeechToken !== speechToken) {
+            this.isSpeaking = false;
+            return;
+          }
           
           // Convert base64 to audio blob
           const audioBlob = this.base64ToBlob(audioContent, 'audio/mp3');
@@ -204,17 +212,26 @@ class TextToSpeechService {
           
           // Create and play audio
           this.currentAudio = new Audio(audioUrl);
+          this.currentAudioUrl = audioUrl;
           
           return new Promise((resolve, reject) => {
             this.currentAudio.onended = () => {
-              this.isSpeaking = false;
+              if (this.currentSpeechToken === speechToken) {
+                this.isSpeaking = false;
+              }
               URL.revokeObjectURL(audioUrl);
+              if (this.currentAudioUrl === audioUrl) {
+                this.currentAudioUrl = null;
+              }
               resolve();
             };
             
             this.currentAudio.onerror = (error) => {
               this.isSpeaking = false;
               URL.revokeObjectURL(audioUrl);
+              if (this.currentAudioUrl === audioUrl) {
+                this.currentAudioUrl = null;
+              }
               reject(error);
             };
             
@@ -232,7 +249,8 @@ class TextToSpeechService {
         const isFrench = this.isFrenchText(text);
         const lang = isFrench ? 'fr-FR' : 'en-US';
         console.log(`🔊 Using browser TTS with language: ${lang}`);
-        await this.speakWithBrowserAPI(text, lang);
+        this.isSpeaking = true;
+        await this.speakWithBrowserAPI(text, lang, speechToken);
       } catch (error) {
         this.isSpeaking = false;
         throw error;
@@ -243,11 +261,21 @@ class TextToSpeechService {
      * Stop current speech
      */
     stop() {
+      this.currentSpeechToken += 1;
+      this.stopActivePlayback();
+    }
+
+    stopActivePlayback() {
       // Stop Google Cloud TTS audio
       if (this.currentAudio) {
         this.currentAudio.pause();
         this.currentAudio.currentTime = 0;
         this.currentAudio = null;
+      }
+
+      if (this.currentAudioUrl) {
+        URL.revokeObjectURL(this.currentAudioUrl);
+        this.currentAudioUrl = null;
       }
       
       // Stop browser speech synthesis

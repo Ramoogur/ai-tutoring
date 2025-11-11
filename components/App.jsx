@@ -156,7 +156,7 @@ const App = () => {
 
   const renderNavigation = () => {
     // Hide navbar for quiz/game pages (they have their own navigation)
-    if (!isLoggedIn || currentPage === 'quiz') return null;
+    if (!isLoggedIn || currentPage === 'quiz' || currentPage === 'landing') return null;
     
     return (
       <nav>
@@ -191,14 +191,13 @@ const App = () => {
   return (
     <>
       {renderNavigation()}
-      {currentPage === 'quiz' ? (
-        // Quiz/Games render without container for full viewport
-        renderContent()
-      ) : (
-        <div className="container">
-          {renderContent()}
-        </div>
-      )}
+      {(() => {
+        const content = renderContent();
+        if (currentPage === 'quiz' || currentPage === 'landing' || currentPage === 'dashboard') {
+          return content;
+        }
+        return <div className="container">{content}</div>;
+      })()}
     </>
   );
 };

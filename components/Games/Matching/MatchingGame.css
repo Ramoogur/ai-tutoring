@@ -232,6 +232,14 @@
     font-weight: bold;
     text-align: center;
   }
+
+  .item-content.icon-content {
+    font-size: 2.4rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
   
   .match-checkmark {
     position: absolute;
@@ -570,8 +578,12 @@
 
 /* Submit Button */
 .submit-button {
-  margin-top: 1.5rem;
-  padding: 1.25rem 3rem;
+  margin: 1.75rem auto 0;
+  padding: 1.25rem 3.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
   background: linear-gradient(135deg, #28A745, #20C997);
   color: white;
   border: none;
@@ -583,10 +595,11 @@
   transition: all 0.3s ease;
   font-family: inherit;
   animation: pulse 2s infinite;
+  min-width: 240px;
 }
 
 .submit-button:hover {
-  transform: scale(1.05);
+  transform: translateY(-2px) scale(1.03);
   box-shadow: 0 8px 16px rgba(40, 167, 69, 0.6);
 }
 

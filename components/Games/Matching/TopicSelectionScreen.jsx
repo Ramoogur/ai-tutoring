@@ -32,27 +32,20 @@ const TOPICS = [
   },
   {
     id: 5,
-    name: 'Measurement & Comparison',
-    icon: '📏',
-    color: '#98D8C8',
-    description: 'Compare sizes and lengths!'
-  },
-  {
-    id: 6,
     name: 'Time',
     icon: '🕐',
     color: '#F7B731',
     description: 'Learn about time!'
   },
   {
-    id: 7,
+    id: 6,
     name: 'Money',
     icon: '💰',
     color: '#5F27CD',
     description: 'Match coins and amounts!'
   },
   {
-    id: 8,
+    id: 7,
     name: 'Ordinal Numbers',
     icon: '🥇',
     color: '#00D2D3',

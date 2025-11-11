@@ -31,6 +31,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
   const [aiStatus, setAiStatus] = useState(null);
   const [questionStartTime, setQuestionStartTime] = useState(null);
   const [aiFeedback, setAiFeedback] = useState(null);
+  const [calculatedNextDifficulty, setCalculatedNextDifficulty] = useState(null);
   
   // Translation states
   const [isFrench, setIsFrench] = useState(false);
@@ -66,6 +67,21 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
     if (error || !data || data.total_attempts === 0) return 'easy';
     const accuracy = data.correct_answers / data.total_attempts;
     return getDifficultyFromAccuracy(accuracy);
+  };
+
+  const determineNextDifficulty = (accuracyPercent, currentDiff) => {
+    if (currentDiff === 'easy') {
+      return accuracyPercent >= 80 ? 'medium' : 'easy';
+    }
+    if (currentDiff === 'medium') {
+      if (accuracyPercent >= 80) return 'hard';
+      if (accuracyPercent < 60) return 'easy';
+      return 'medium';
+    }
+    // hard
+    if (accuracyPercent < 60) return 'easy';
+    if (accuracyPercent < 80) return 'medium';
+    return 'hard';
   };
 
   // AI-Enhanced initialization with adaptive difficulty - ONLY ONCE
@@ -614,9 +630,10 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
     setAiFeedback(aiAnalysisResult.aiFeedback);
     
     // Log difficulty adjustments
-    if (aiAnalysisResult.difficultyAdjustment) {
-      console.log(`🔄 AI adjusted difficulty to: ${aiAnalysisResult.newDifficulty}`);
-      setDifficulty(aiAnalysisResult.newDifficulty.toLowerCase());
+    if (aiAnalysisResult.difficultyAdjustment && aiAnalysisResult.newDifficulty) {
+      const suggestedDifficulty = aiAnalysisResult.newDifficulty.toLowerCase();
+      console.log(`🔄 AI suggested difficulty change to: ${suggestedDifficulty}`);
+      setCalculatedNextDifficulty(prev => prev || suggestedDifficulty);
     }
 
     // Track question details for ModernFeedback
@@ -684,13 +701,36 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
 
   const finishQuiz = async () => {
     setShowResult(true);
-    const accuracy = score / questions.length;
     const totalTime = Math.floor(questionDetails.reduce((sum, q) => sum + q.timeSpent, 0) / 1000);
     setTotalTimeSpent(totalTime);
+    
+    const sessionAccuracy = (score / Math.max(questions.length, 1)) * 100;
+    const manualDifficultyProgression = {
+      current: difficulty,
+      next: determineNextDifficulty(sessionAccuracy, difficulty),
+      reason: `Accuracy ${sessionAccuracy.toFixed(1)}%`
+    };
+    setCalculatedNextDifficulty(manualDifficultyProgression.next);
     
     // Complete AI session and get comprehensive feedback
     let aiSessionSummary = aiController.completeQuizSession();
     console.log('🎓 AI Session Summary:', aiSessionSummary);
+    
+    if (!aiSessionSummary || typeof aiSessionSummary !== 'object') {
+      aiSessionSummary = {
+        aiFeedback: {},
+        difficultyProgression: manualDifficultyProgression,
+        performance: sessionAccuracy,
+        currentStreak: 0,
+        duration: totalTime * 1000
+      };
+    } else {
+      aiSessionSummary = {
+        ...aiSessionSummary,
+        difficultyProgression: manualDifficultyProgression
+      };
+      aiSessionSummary.aiFeedback = aiSessionSummary.aiFeedback || {};
+    }
     
     // Set AI feedback with session summary
     setAiFeedback({
@@ -703,9 +743,8 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
     
     // Save comprehensive progress data to database
     try {
-      const sessionAccuracy = (score / questions.length) * 100;
-      const currentSessionDifficulty = aiSessionSummary?.difficultyProgression?.current || 'easy';
-      const nextSessionDifficulty = aiSessionSummary?.difficultyProgression?.next || 'easy';
+      const currentSessionDifficulty = manualDifficultyProgression.current;
+      const nextSessionDifficulty = manualDifficultyProgression.next;
       
       // 1. Update/Insert StudentTopicStats (overall progress)
       const statsData = {
@@ -721,7 +760,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
         best_streak: aiSessionSummary?.currentStreak || 0,
         progress_data: JSON.stringify({
           recentAccuracies: [sessionAccuracy], // Array to track trend
-          difficultyHistory: aiSessionSummary?.difficultyProgression || {},
+          difficultyHistory: manualDifficultyProgression,
           learningInsights: aiSessionSummary?.aiFeedback?.insights || [],
           achievements: aiSessionSummary?.aiFeedback?.achievements || []
         })
@@ -738,13 +777,13 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
         questions_attempted: questions.length,
         correct_answers: score,
         accuracy_percentage: sessionAccuracy,
-        time_spent: Math.round((Date.now() - aiSessionSummary?.duration) / 1000) || 0,
+        time_spent: totalTime,
         next_difficulty: nextSessionDifficulty,
         difficulty_changed: currentSessionDifficulty !== nextSessionDifficulty,
         ai_feedback: JSON.stringify({
           encouragement: aiSessionSummary?.aiFeedback?.encouragement,
           suggestions: aiSessionSummary?.aiFeedback?.suggestions,
-          progressionReason: aiSessionSummary?.difficultyProgression?.reason
+          progressionReason: manualDifficultyProgression.reason
         }),
         question_details: JSON.stringify({
           questionTypes: questions.map(q => q.type),
@@ -758,7 +797,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
       
       await supabase.from('QuizSessions').insert(sessionData);
       
-      console.log(`📊 Results saved - Score: ${score}/${questions.length}, Accuracy: ${(accuracy*100).toFixed(1)}%`);
+      console.log(`📊 Results saved - Score: ${score}/${questions.length}, Accuracy: ${sessionAccuracy.toFixed(1)}%`);
       
     } catch (error) {
       console.error('Error saving results:', error);
@@ -780,10 +819,8 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
   }
 
   if (showResult) {
-    // Calculate next difficulty
-    const currentAccuracy = score / questions.length;
-    let nextDifficulty = aiFeedback?.sessionSummary?.difficultyProgression?.next || difficulty;
-    let difficultyChanged = difficulty !== nextDifficulty;
+    const nextDifficulty = calculatedNextDifficulty || aiFeedback?.sessionSummary?.difficultyProgression?.next || difficulty;
+    const difficultyChanged = difficulty !== nextDifficulty;
     
     return (
       <ModernFeedback

@@ -4,7 +4,7 @@
  * 5 beads per row to make multiples
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Bead from './Bead';
 import {
   startSession,
@@ -14,6 +14,7 @@ import {
   logEvent
 } from './abacusService';
 import './AbacusGame.css';
+import ttsService from '../../../utils/textToSpeechService';
 
 const AbacusGame = ({ topic, user, navigateTo }) => {
   // Extract student ID from user object
@@ -26,7 +27,6 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
   // Bead State - Array of 9 rows, each with 0-5 active beads
   const [rowStates, setRowStates] = useState(Array(9).fill(0));
   const [disabledRows, setDisabledRows] = useState([]); // Array of row indices that are disabled
-  
   // Game Progress
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -40,6 +40,7 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackType, setFeedbackType] = useState('');
+  const [countAnswer, setCountAnswer] = useState('');
   
   // UI State
   const [showCelebration, setShowCelebration] = useState(false);
@@ -47,9 +48,6 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
   const [startTime, setStartTime] = useState(null);
   const [sessionStartTime, setSessionStartTime] = useState(null);
   
-  // Refs
-  const synthRef = useRef(window.speechSynthesis);
-
   // Colors for each row (1-9)
   const rowColors = [
     'green',   // 1s - green
@@ -75,6 +73,7 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
       if (session && session.id) {
         handleEndSession();
       }
+      ttsService.stop();
     };
   }, [studentId]);
 
@@ -97,17 +96,24 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
   // ============================================
 
   const speak = (text) => {
-    if (!voiceEnabled || !synthRef.current) return;
-    synthRef.current.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
-    utterance.volume = 0.8;
-    synthRef.current.speak(utterance);
+    if (!voiceEnabled || !text) {
+      return Promise.resolve();
+    }
+    return ttsService
+      .speak(text)
+      .catch((error) => {
+        console.error('Failed to play TTS audio:', error);
+      });
   };
 
   const toggleVoice = () => {
-    setVoiceEnabled(!voiceEnabled);
+    setVoiceEnabled((prev) => {
+      const nextState = !prev;
+      if (!nextState) {
+        ttsService.stop();
+      }
+      return nextState;
+    });
     if (!voiceEnabled) {
       speak('Voice is now on!');
     }
@@ -147,6 +153,7 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
       setRowStates(Array(9).fill(0));
       setShowFeedback(false);
       setTargetNumber(null);
+      setCountAnswer('');
       setStartTime(null);
       setDisabledRows([]); // Clear any disabled rows
       
@@ -214,6 +221,7 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
 
   const handleClear = () => {
     resetBeads();
+    setCountAnswer('');
     speak('Cleared!');
     setFeedbackMessage('All clear! 🔄');
     setFeedbackType('info');
@@ -226,17 +234,58 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
   // ============================================
 
   const generateCountQuestion = () => {
-    // Generate random beads across rows (total 1-20)
+    const maxTotal = 10;
+    const targetTotal = Math.floor(Math.random() * (maxTotal + 1)); // 0-10
     const newRowStates = Array(9).fill(0);
-    let targetTotal = Math.floor(Math.random() * 9) + 1; // 1-9 for simplicity
-    
-    // Simple approach: use one row
-    const randomRow = Math.floor(Math.random() * 9);
-    const beadsInRow = Math.min(Math.floor(Math.random() * 3) + 1, 5); // 1-3 beads
-    newRowStates[randomRow] = beadsInRow;
-    
+    let remaining = targetTotal;
+    let safetyCounter = 0;
+
+    while (remaining > 0 && safetyCounter < 100) {
+      safetyCounter += 1;
+
+      const eligibleRows = [];
+      for (let rowValue = 1; rowValue <= 9; rowValue += 1) {
+        const rowIndex = rowValue - 1;
+        const availableSlots = 5 - newRowStates[rowIndex];
+        if (availableSlots <= 0) continue;
+        if (rowValue <= remaining) {
+          eligibleRows.push({ rowValue, rowIndex, availableSlots });
+        }
+      }
+
+      if (eligibleRows.length === 0) {
+        break;
+      }
+
+      const choice =
+        eligibleRows[Math.floor(Math.random() * eligibleRows.length)];
+      const maxBeads = Math.min(
+        choice.availableSlots,
+        Math.floor(remaining / choice.rowValue)
+      );
+
+      if (maxBeads <= 0) {
+        continue;
+      }
+
+      const beadsToAdd = Math.floor(Math.random() * maxBeads) + 1;
+      newRowStates[choice.rowIndex] += beadsToAdd;
+      remaining -= choice.rowValue * beadsToAdd;
+    }
+
+    if (remaining > 0) {
+      const rowIndex = 0; // Use ones row to fill the rest
+      const availableSlots = 5 - newRowStates[rowIndex];
+      const beadsToAdd = Math.min(remaining, Math.max(availableSlots, 0));
+      if (beadsToAdd > 0) {
+        newRowStates[rowIndex] += beadsToAdd;
+        remaining -= beadsToAdd;
+      }
+    }
+
     setRowStates(newRowStates);
     setTargetNumber(null);
+    setCountAnswer('');
     setStartTime(Date.now());
     setQuestionIndex(questionIndex + 1);
     
@@ -294,15 +343,34 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
     }
     
     if (gameMode === 'count') {
-      await handleCountAnswer(currentTotal);
+      await handleCountAnswer();
     } else if (gameMode === 'make') {
       await handleMakeAnswer(currentTotal);
     }
   };
 
-  const handleCountAnswer = async (studentAnswer) => {
+  const handleCountAnswer = async () => {
     const correctAnswer = calculateTotal();
-    const isCorrect = true; // Simplified
+    const trimmedAnswer = countAnswer.trim();
+
+    if (trimmedAnswer === '') {
+      setFeedbackMessage('Type your answer before checking! ✍️');
+      setFeedbackType('info');
+      setShowFeedback(true);
+      setTimeout(() => setShowFeedback(false), 2000);
+      return;
+    }
+
+    const parsedAnswer = Number(trimmedAnswer);
+    if (Number.isNaN(parsedAnswer)) {
+      setFeedbackMessage('Please enter a number! 🔢');
+      setFeedbackType('error');
+      setShowFeedback(true);
+      setTimeout(() => setShowFeedback(false), 2000);
+      return;
+    }
+
+    const isCorrect = parsedAnswer === correctAnswer;
     const timeTaken = startTime ? Date.now() - startTime : 0;
     
     try {
@@ -312,7 +380,7 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
           questionIndex,
           questionType: 'count',
           targetNumber: correctAnswer,
-          studentAnswer: correctAnswer,
+          studentAnswer: parsedAnswer,
           tensUsed: 0,
           onesUsed: correctAnswer,
           isCorrect,
@@ -325,7 +393,11 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
     }
     
     setTotalQuestions(totalQuestions + 1);
-    handleCorrectAnswer(correctAnswer);
+    if (isCorrect) {
+      handleCorrectAnswer(correctAnswer);
+    } else {
+      await handleIncorrectAnswer(correctAnswer, parsedAnswer);
+    }
   };
 
   const handleMakeAnswer = async (studentAnswer) => {
@@ -365,7 +437,7 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
     if (isCorrect) {
       handleCorrectAnswer(studentAnswer);
     } else {
-      handleIncorrectAnswer(targetNumber, studentAnswer);
+      await handleIncorrectAnswer(targetNumber, studentAnswer);
     }
   };
 
@@ -416,25 +488,25 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
     }, 2000);
   };
 
-  const handleIncorrectAnswer = (correct, studentAnswer) => {
+  const handleIncorrectAnswer = async (correct, studentAnswer) => {
     setStreak(0);
     
     const messages = ['Not quite! Try again!', 'Almost! You can do it!', 'Let\'s try another!', 'Good try!'];
     const message = messages[Math.floor(Math.random() * messages.length)];
     
-    speak(message);
+    const spokenFeedback = `${message} The answer was ${correct}.`;
     setFeedbackMessage(`${message} The answer was ${correct}. 💪`);
     setFeedbackType('error');
     setShowFeedback(true);
-    
-    setTimeout(() => {
-      setShowFeedback(false);
-      if (gameMode === 'count') {
-        generateCountQuestion();
-      } else if (gameMode === 'make') {
-        generateMakeQuestion();
-      }
-    }, 3000);
+
+    await speak(spokenFeedback);
+
+    setShowFeedback(false);
+    if (gameMode === 'count') {
+      generateCountQuestion();
+    } else if (gameMode === 'make') {
+      generateMakeQuestion();
+    }
   };
 
   // ============================================
@@ -478,6 +550,7 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
     : 0;
 
   const currentTotal = calculateTotal();
+  const isCountAnswerEmpty = countAnswer.trim() === '';
 
   return (
     <div className="abacus-game">
@@ -573,9 +646,29 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
         {/* Target/Current Number */}
         <div className="number-display">
           {gameMode === 'make' && targetNumber && (
-            <div className="target">Make: <span className="big-number">{targetNumber}</span></div>
+            <div className="target">
+              Make: <span className="big-number">{targetNumber}</span>
+            </div>
           )}
-          <div className="current">Your Number: <span className="big-number">{currentTotal}</span></div>
+
+          {gameMode === 'count' ? (
+            <div className="target count-target">
+              Count:
+              <input
+                id="count-answer"
+                className="count-input"
+                type="number"
+                min="0"
+                value={countAnswer}
+                onChange={(e) => setCountAnswer(e.target.value)}
+                placeholder="Type your number"
+              />
+            </div>
+          ) : (
+            <div className="current">
+              Your Number: <span className="big-number">{currentTotal}</span>
+            </div>
+          )}
         </div>
 
         {/* Abacus Grid */}
@@ -585,8 +678,14 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
             const activeCount = rowStates[rowIndex];
             const isDisabled = disabledRows.includes(rowIndex);
             
+            const displayedRowTotal =
+              gameMode === 'count' ? 0 : rowValue * activeCount;
+
             return (
-              <div key={`row-${rowIndex}`} className={`abacus-row ${isDisabled ? 'disabled-row' : ''}`}>
+              <div
+                key={`row-${rowIndex}`}
+                className={`abacus-row ${isDisabled ? 'disabled-row' : ''}`}
+              >
                 <div className="row-label">{rowValue}</div>
                 <div className="row-beads">
                   {Array.from({ length: 5 }).map((_, beadIndex) => (
@@ -600,7 +699,7 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
                     />
                   ))}
                 </div>
-                <div className="row-total">{rowValue * activeCount}</div>
+                <div className="row-total">{displayedRowTotal}</div>
                 {isDisabled && <div className="blocked-overlay">🚫</div>}
               </div>
             );
@@ -613,7 +712,11 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
             🔄 Clear
           </button>
           {gameMode !== 'free' && (
-            <button onClick={checkAnswer} className="btn check-btn">
+            <button
+              onClick={checkAnswer}
+              className="btn check-btn"
+              disabled={gameMode === 'count' && isCountAnswerEmpty}
+            >
               ✓ Check
             </button>
           )}

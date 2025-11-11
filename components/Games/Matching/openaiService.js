@@ -109,14 +109,6 @@ const createPromptForTopic = (topic) => {
     
     Return ONLY JSON: {"pairs": [{"left": "🔴", "right": "circle"}, ...]}`,
 
-    'Measurement & Comparison': `Create 6 matching pairs for Measurement & Comparison for Grade 1:
-    - Match objects or emojis with comparison words
-    - Example: "🐘" matches with "big" OR "🐜" matches with "small"
-    - Use concepts: big/small, long/short, tall/short, heavy/light
-    - Use relevant emojis
-    
-    Return ONLY JSON: {"pairs": [{"left": "🐘", "right": "big"}, ...]}`,
-
     'Time': `Create 6 matching pairs for Time concepts for Grade 1:
     - Match time-related emojis or words with time concepts
     - Example: "☀️" matches with "morning" OR "12 o'clock" matches with "🕐"
@@ -181,14 +173,6 @@ const getFallbackPairs = (topic) => {
       { left: 'red', right: '🔴' },
       { left: 'blue', right: '🔵' },
       { left: 'yellow', right: '🟡' }
-    ],
-    'Measurement & Comparison': [
-      { left: '🐘', right: 'big' },
-      { left: '🐜', right: 'small' },
-      { left: '🚂', right: 'long' },
-      { left: '🚗', right: 'short' },
-      { left: '🦒', right: 'tall' },
-      { left: '🐢', right: 'short' }
     ],
     'Time': [
       { left: '☀️', right: 'morning' },

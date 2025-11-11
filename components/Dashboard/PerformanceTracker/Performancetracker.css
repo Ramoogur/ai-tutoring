@@ -28,6 +28,7 @@
     width: 100%;
     max-height: 90vh;
     overflow-y: auto;
+    overflow-x: hidden;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     animation: slideUp 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
     position: relative;
@@ -322,8 +323,8 @@
     margin-bottom: 30px;
   }
   
-  .stat-box {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.stat-box {
+    background: linear-gradient(135deg, #4338ca 0%, #312e81 100%);
     padding: 40px 30px;
     border-radius: 24px;
     text-align: center;
@@ -351,8 +352,8 @@
     box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
   }
   
-  .stat-icon {
-    font-size: 4.5rem;
+.stat-icon {
+    font-size: 12rem;
     margin-bottom: 15px;
     animation: bounce 2s ease infinite;
   }
@@ -375,33 +376,28 @@
   }
   
   /* Specific Stat Box Colors */
-  .sessions-box {
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+.sessions-box {
+    background: linear-gradient(145deg, #1d4ed8 0%, #1e3a8a 100%);
   }
   
-  .accuracy-box {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+.accuracy-box {
+    background: linear-gradient(145deg, #9d174d 0%, #be123c 50%, #831843 100%);
   }
   
-  .time-box {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+.time-box {
+    background: linear-gradient(145deg, #0f766e 0%, #0f172a 100%);
   }
   
   .streak-box {
-    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    background: linear-gradient(145deg, #b91c1c 0%, #f97316 100%);
   }
-
-  /* Better text visibility for lighter backgrounds */
+  
   .time-box .stat-value,
-  .time-box .stat-label {
-    color: #1a1a1a;
-    text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.8);
-  }
-
+  .time-box .stat-label,
   .streak-box .stat-value,
   .streak-box .stat-label {
-    color: #1a1a1a;
-    text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.8);
+    color: #ffffff;
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.6);
   }
   
   /* Activity Bars */
@@ -642,11 +638,19 @@
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   }
   
-  .timeline-date {
+.timeline-date {
     font-weight: 600;
     color: #667eea;
-    min-width: 100px;
+    min-width: 120px;
     font-size: 0.95rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .timeline-time {
+    font-size: 0.85rem;
+    color: #4a4a4a;
   }
   
   .timeline-content {

@@ -364,7 +364,10 @@ const PerformanceTracker = ({ user, onClose }) => {
                   <div className="activity-timeline">
                     {quiz.recentSessions.slice(0, 5).map((session, idx) => (
                       <div key={idx} className="timeline-item">
-                        <div className="timeline-date">{session.date}</div>
+                        <div className="timeline-date">
+                          <span>{session.date}</span>
+                          {session.time && <span className="timeline-time">{session.time}</span>}
+                        </div>
                         <div className="timeline-content">
                           <div className="timeline-topic">{session.topic}</div>
                           <div className="timeline-details">
@@ -447,7 +450,10 @@ const PerformanceTracker = ({ user, onClose }) => {
                   <div className="activity-timeline">
                     {abacus.recentSessions.slice(0, 5).map((session, idx) => (
                       <div key={idx} className="timeline-item">
-                        <div className="timeline-date">{session.date}</div>
+                        <div className="timeline-date">
+                          <span>{session.date}</span>
+                          {session.time && <span className="timeline-time">{session.time}</span>}
+                        </div>
                         <div className="timeline-content">
                           <div className="timeline-topic">{session.mode.toUpperCase()} Mode</div>
                           <div className="timeline-details">
@@ -530,7 +536,10 @@ const PerformanceTracker = ({ user, onClose }) => {
                   <div className="activity-timeline">
                     {matching.recentSessions.slice(0, 5).map((session, idx) => (
                       <div key={idx} className="timeline-item">
-                        <div className="timeline-date">{session.date}</div>
+                        <div className="timeline-date">
+                          <span>{session.date}</span>
+                          {session.time && <span className="timeline-time">{session.time}</span>}
+                        </div>
                         <div className="timeline-content">
                           <div className="timeline-topic">{session.topic}</div>
                           <div className="timeline-details">

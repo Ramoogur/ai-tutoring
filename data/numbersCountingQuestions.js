@@ -313,25 +313,6 @@ const numbersCountingQuestions = {
       answer: '8',
       difficulty: 'medium'
     },
-    // Sequence
-    {
-      id: 34,
-      type: 'sequence',
-      question: 'Fill in the missing number: 5, 6, ___, 8, 9',
-      sequence: ['5', '6', '', '8', '9'],
-      missingIndex: 2,
-      answer: '7',
-      difficulty: 'medium'
-    },
-    {
-      id: 35,
-      type: 'sequence',
-      question: 'Fill in the missing number: 7, 8, ___, 10',
-      sequence: ['7', '8', '', '10'],
-      missingIndex: 2,
-      answer: '9',
-      difficulty: 'medium'
-    },
     // Multiple Choice
     {
       id: 36,
@@ -470,34 +451,6 @@ const numbersCountingQuestions = {
       target: 'ten',
       targetType: 'word',
       answer: 'ten',
-      difficulty: 'hard'
-    },
-    // Advanced Sequences
-    {
-      id: 51,
-      type: 'sequence',
-      question: 'Fill in the missing numbers: 8, ___, 10',
-      sequence: ['8', '', '10'],
-      missingIndex: 1,
-      answer: '9',
-      difficulty: 'hard'
-    },
-    {
-      id: 52,
-      type: 'sequence',
-      question: 'Fill in the missing number: 0, 1, ___, 3, 4',
-      sequence: ['0', '1', '', '3', '4'],
-      missingIndex: 2,
-      answer: '2',
-      difficulty: 'hard'
-    },
-    {
-      id: 53,
-      type: 'sequence',
-      question: 'Complete the backward sequence: 10, 9, ___, 7, 6',
-      sequence: ['10', '9', '', '7', '6'],
-      missingIndex: 2,
-      answer: '8',
       difficulty: 'hard'
     },
     // Word Completion (Advanced)

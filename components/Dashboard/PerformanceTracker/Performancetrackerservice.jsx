@@ -143,12 +143,16 @@ const fetchQuizPerformance = async (studentId, topicMap) => {
     });
 
     // Recent sessions (last 10)
-    const recentSessions = sessions.slice(0, 10).map(s => ({
-      date: new Date(s.session_date).toLocaleDateString(),
-      topic: topicMap[s.topic_id] || 'Unknown',
-      accuracy: s.accuracy_percentage || 0,
-      difficulty: s.difficulty_level || 'easy'
-    }));
+    const recentSessions = sessions.slice(0, 10).map(s => {
+      const sessionDate = new Date(s.session_date);
+      return {
+        date: sessionDate.toLocaleDateString(),
+        time: sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        topic: topicMap[s.topic_id] || 'Unknown',
+        accuracy: s.accuracy_percentage || 0,
+        difficulty: s.difficulty_level || 'easy'
+      };
+    });
 
     return {
       totalSessions,
@@ -218,12 +222,16 @@ const fetchAbacusPerformance = async (studentId) => {
     });
 
     // Recent sessions
-    const recentSessions = sessions.slice(0, 10).map(s => ({
-      date: new Date(s.started_at).toLocaleDateString(),
-      mode: s.game_mode || 'unknown',
-      accuracy: s.accuracy_percentage || 0,
-      score: s.total_score || 0
-    }));
+    const recentSessions = sessions.slice(0, 10).map(s => {
+      const sessionDate = new Date(s.started_at);
+      return {
+        date: sessionDate.toLocaleDateString(),
+        time: sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        mode: s.game_mode || 'unknown',
+        accuracy: s.accuracy_percentage || 0,
+        score: s.total_score || 0
+      };
+    });
 
     return {
       totalSessions,
@@ -297,12 +305,16 @@ const fetchMatchingPerformance = async (studentId, topicMap) => {
     });
 
     // Recent sessions
-    const recentSessions = sessions.slice(0, 10).map(s => ({
-      date: new Date(s.started_at).toLocaleDateString(),
-      topic: topicMap[s.topic_id] || 'Unknown',
-      accuracy: s.accuracy_percentage || 0,
-      matches: s.correct_matches || 0
-    }));
+    const recentSessions = sessions.slice(0, 10).map(s => {
+      const sessionDate = new Date(s.started_at);
+      return {
+        date: sessionDate.toLocaleDateString(),
+        time: sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        topic: topicMap[s.topic_id] || 'Unknown',
+        accuracy: s.accuracy_percentage || 0,
+        matches: s.correct_matches || 0
+      };
+    });
 
     return {
       totalSessions,
