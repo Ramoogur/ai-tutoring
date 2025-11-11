@@ -98,8 +98,17 @@ const Money = ({ topic, user, navigateTo }) => {
   };
 
   useEffect(() => {
+    let isInitialized = false;
+    
+    // Prevent re-initialization
+    if (isInitialized || questions.length > 0) {
+      if (questions.length > 0) console.log('⚠️ Money quiz already initialized, skipping');
+      return;
+    }
+    isInitialized = true;
+    
     loadQuestions();
-  }, []);
+  }, []); // Already has empty array - good!
 
   // Restart quiz with updated difficulty and reshuffled questions
   const restartQuiz = async () => {
@@ -471,16 +480,108 @@ const Money = ({ topic, user, navigateTo }) => {
 
   const renderCoin = (coinType, isSelected = false, onClick = null, className = '') => {
     const coin = mauritianCoins[coinType];
+    
+    // Define coin colors based on type
+    const getCoinColor = (type) => {
+      switch(type) {
+        case '1c': return { base: '#8D6E63', shine: '#A1887F', dark: '#6D4C41' }; // Bronze
+        case '5c': return { base: '#FFB74D', shine: '#FFC107', dark: '#F57C00' }; // Gold/Bronze
+        case 'Rs1': return { base: '#B0BEC5', shine: '#CFD8DC', dark: '#78909C' }; // Silver
+        case 'Rs5': return { base: '#FFD54F', shine: '#FFEB3B', dark: '#FBC02D' }; // Gold
+        case 'Rs10': return { base: '#F06292', shine: '#F8BBD0', dark: '#C2185B' }; // Pink/Red
+        default: return { base: '#999', shine: '#CCC', dark: '#666' };
+      }
+    };
+    
+    const colors = getCoinColor(coinType);
+    const size = 80;
+    
     return (
       <div 
-        className={`coin ${coinType} ${isSelected ? 'selected' : ''} ${className}`}
+        className={`coin-svg-wrapper ${coinType} ${isSelected ? 'selected' : ''} ${className}`}
         onClick={onClick}
-        style={{ cursor: onClick ? 'pointer' : 'default' }}
+        style={{ cursor: onClick ? 'pointer' : 'default', display: 'inline-block', margin: '10px' }}
       >
-        <div className="coin-inner">
-          <div className="coin-value">{coin.display}</div>
-          <div className="coin-type">{coin.type}</div>
-        </div>
+        <svg width={size} height={size} viewBox="0 0 80 80" className="coin-svg">
+          {/* Outer ring (shadow) */}
+          <circle cx="40" cy="42" r="38" fill="rgba(0,0,0,0.2)" />
+          
+          {/* Main coin body */}
+          <circle cx="40" cy="40" r="38" fill={colors.base} stroke={colors.dark} strokeWidth="2" />
+          
+          {/* Inner circle for depth */}
+          <circle cx="40" cy="40" r="35" fill="none" stroke={colors.dark} strokeWidth="1" opacity="0.3" />
+          
+          {/* Shine effect (top left) */}
+          <ellipse 
+            cx="35" 
+            cy="30" 
+            rx="20" 
+            ry="15" 
+            fill={colors.shine} 
+            opacity="0.4" 
+          />
+          
+          {/* Edge ridges */}
+          {Array.from({ length: 24 }, (_, i) => {
+            const angle = (i * 15) * Math.PI / 180;
+            const x1 = 40 + 36 * Math.cos(angle);
+            const y1 = 40 + 36 * Math.sin(angle);
+            const x2 = 40 + 38 * Math.cos(angle);
+            const y2 = 40 + 38 * Math.sin(angle);
+            return (
+              <line 
+                key={i}
+                x1={x1} 
+                y1={y1} 
+                x2={x2} 
+                y2={y2} 
+                stroke={colors.dark} 
+                strokeWidth="1" 
+                opacity="0.5"
+              />
+            );
+          })}
+          
+          {/* Coin value text */}
+          <text 
+            x="40" 
+            y="38" 
+            textAnchor="middle" 
+            fontSize="18" 
+            fontWeight="bold" 
+            fill="white"
+            stroke={colors.dark}
+            strokeWidth="0.5"
+          >
+            {coin.display}
+          </text>
+          
+          {/* Coin type text */}
+          <text 
+            x="40" 
+            y="52" 
+            textAnchor="middle" 
+            fontSize="9" 
+            fill="white"
+            opacity="0.9"
+          >
+            {coin.type === 'cent' ? 'CENTS' : 'RUPEES'}
+          </text>
+          
+          {/* Selection indicator ring */}
+          {isSelected && (
+            <circle 
+              cx="40" 
+              cy="40" 
+              r="37" 
+              fill="none" 
+              stroke="#4CAF50" 
+              strokeWidth="4"
+              className="selection-ring"
+            />
+          )}
+        </svg>
       </div>
     );
   };
@@ -635,8 +736,27 @@ const Money = ({ topic, user, navigateTo }) => {
             <div className="current-total">
               Current: {formatMoney(currentTotal)}
             </div>
-            <div className="coin-counters">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h4>Choose Coins:</h4>
+              {Object.keys(coinCounts).length > 0 && (
+                <button
+                  onClick={() => setCoinCounts({})}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    background: '#ff6b6b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                  title="Reset all coins"
+                >
+                  🔄 Reset
+                </button>
+              )}
+            </div>
+            <div className="coin-counters">
               <div className="counter-grid">
                 {question.allowed_coins.map((coin, index) => {
                   const count = coinCounts[coin] || 0;
@@ -907,6 +1027,7 @@ const Money = ({ topic, user, navigateTo }) => {
       {/* Immediate Feedback Popup */}
       {currentFeedbackData && (
         <ImmediateFeedback
+          key={`feedback-q${currentQuestionIndex}`} // Unique key per question to ensure fresh component for each question
           isVisible={showImmediateFeedback}
           isCorrect={currentFeedbackData.isCorrect}
           question={currentFeedbackData.question}

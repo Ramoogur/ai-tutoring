@@ -64,9 +64,18 @@ const Addition = ({ topic, user, navigateTo }) => {
     return data.current_difficulty || 'easy';
   };
 
-  // Initialize quiz with AI and database integration
+  // Initialize quiz with AI and database integration - ONLY ONCE
   useEffect(() => {
+    let isInitialized = false;
+    
     const initializeQuiz = async () => {
+      // Prevent re-initialization
+      if (isInitialized || questions.length > 0) {
+        console.log('⚠️ Addition quiz already initialized, skipping');
+        return;
+      }
+      isInitialized = true;
+      
       if (!user?.id) {
         // Fallback for no user - use easy questions
         const selectedQuestions = shuffle(additionQuestions.easy).slice(0, 5);
@@ -86,10 +95,12 @@ const Addition = ({ topic, user, navigateTo }) => {
           setAiStatus(`AI Active - ${currentDifficulty.charAt(0).toUpperCase() + currentDifficulty.slice(1)} Level`);
         }
         
-        // Get questions for current difficulty
+        // Get questions for current difficulty - SHUFFLE ONLY ONCE
         const selectedQuestions = shuffle(additionQuestions[currentDifficulty]).slice(0, 5);
         setQuestions(selectedQuestions);
         setQuestionStartTime(Date.now());
+        
+        console.log(`✅ Addition quiz initialized with ${selectedQuestions.length} questions`);
         
       } catch (error) {
         console.error('Error initializing quiz:', error);
@@ -102,7 +113,7 @@ const Addition = ({ topic, user, navigateTo }) => {
     };
     
     initializeQuiz();
-  }, [user]);
+  }, []); // Empty dependency array - only run once on mount
 
   // Restart quiz with updated difficulty and reshuffled questions
   const restartQuiz = async () => {
@@ -536,7 +547,6 @@ const Addition = ({ topic, user, navigateTo }) => {
       case 'numeral-word':
         return (
           <div className="addition-question" key={idx}>
-            <div className="addition-prompt">{q.prompt}</div>
             <input 
               type="number" 
               className="addition-input"
@@ -597,7 +607,6 @@ const Addition = ({ topic, user, navigateTo }) => {
       case 'word-problem':
         return (
           <div className="addition-question" key={idx}>
-            <div className="addition-prompt">{q.prompt}</div>
             <input 
               type="number" 
               className="addition-input"
@@ -695,10 +704,17 @@ const Addition = ({ topic, user, navigateTo }) => {
       
       <div className="question-content">
         <div className="question-header">
-          <div className="question-text">{getCurrentQuestion()?.prompt || getCurrentQuestion()?.question || (isFrench ? 'Chargement de la question...' : 'Loading question...')}</div>
+          {/* For missing-number questions, show helper text instead of the equation (which is displayed visually below) */}
+          <div className="question-text">
+            {getCurrentQuestion()?.type === 'missing-number' 
+              ? (isFrench ? 'Remplissez le nombre manquant' : 'Fill in the missing number')
+              : (getCurrentQuestion()?.prompt || getCurrentQuestion()?.question || (isFrench ? 'Chargement de la question...' : 'Loading question...'))}
+          </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <TTSButton 
-              question={getCurrentQuestion()?.prompt || getCurrentQuestion()?.question || ''}
+              question={getCurrentQuestion()?.type === 'missing-number'
+                ? (isFrench ? 'Remplissez le nombre manquant' : 'Fill in the missing number')
+                : (getCurrentQuestion()?.prompt || getCurrentQuestion()?.question || '')}
               options={[]}
             />
             <TranslationButton 
@@ -713,6 +729,7 @@ const Addition = ({ topic, user, navigateTo }) => {
       {/* Immediate Feedback Popup */}
       {currentFeedbackData && (
         <ImmediateFeedback
+          key={`feedback-q${currentQuestionIndex}`} // Unique key per question to ensure fresh component for each question
           isVisible={showImmediateFeedback}
           isCorrect={currentFeedbackData.isCorrect}
           question={currentFeedbackData.question}

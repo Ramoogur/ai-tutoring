@@ -56,10 +56,17 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
     return 'easy';
   };
 
-  // Initialize quiz
+  // Initialize quiz - ONLY ONCE
   useEffect(() => {
+    let isInitialized = false;
+    
     (async () => {
-      if (!topic || !user) return;
+      // Prevent re-initialization
+      if (!topic || !user || isInitialized || questions.length > 0) {
+        if (questions.length > 0) console.log('⚠️ Ordinal Numbers quiz already initialized, skipping');
+        return;
+      }
+      isInitialized = true;
       
       // Reset quiz state
       setCurrentQuestionIndex(0);
@@ -98,7 +105,7 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
       
       setDifficulty(savedDifficulty);
       
-      // Select questions based on difficulty
+      // Select questions based on difficulty - SHUFFLE ONLY ONCE
       let selectedQuestions = [];
       const questionPool = ordinalNumbersQuestions[savedDifficulty] || ordinalNumbersQuestions.easy;
       
@@ -140,8 +147,9 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
         setShuffledQuestionData(shuffledData);
       }
       
+      console.log(`✅ Ordinal Numbers quiz initialized with ${selectedQuestions.length} questions at ${savedDifficulty} level`);
     })();
-  }, [topic, user]);
+  }, []); // Empty dependency array - only run once on mount
 
   // Restart quiz with updated difficulty and reshuffled questions
   const restartQuiz = async () => {
@@ -282,6 +290,20 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
     }
   };
 
+  // Remove dropped item (undo functionality)
+  const removeDroppedItem = (target) => {
+    setDroppedItems(prev => {
+      const updated = {...prev};
+      delete updated[target];
+      return updated;
+    });
+  };
+
+  // Clear all dropped items
+  const clearAllDropped = () => {
+    setDroppedItems({});
+  };
+
   const handleDragOver = (e) => {
     e.preventDefault();
   };
@@ -295,6 +317,20 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
     }
   };
 
+  // Remove from podium slot (undo functionality)
+  const removePodiumSlot = (position) => {
+    setPodiumSlots(prev => {
+      const updated = {...prev};
+      delete updated[position];
+      return updated;
+    });
+  };
+
+  // Clear all podium slots
+  const clearAllPodium = () => {
+    setPodiumSlots({});
+  };
+
   // Matching functionality
   const handleMatchDrop = (e, target) => {
     e.preventDefault();
@@ -302,6 +338,20 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
       setMatchedPairs(prev => ({...prev, [target]: draggedItem}));
       setDraggedItem(null);
     }
+  };
+
+  // Remove matched pair (undo functionality)
+  const removeMatchedPair = (target) => {
+    setMatchedPairs(prev => {
+      const updated = {...prev};
+      delete updated[target];
+      return updated;
+    });
+  };
+
+  // Clear all matches
+  const clearAllMatches = () => {
+    setMatchedPairs({});
   };
 
   // Text input handling
@@ -977,6 +1027,7 @@ const OrdinalNumbers = ({ topic, user, navigateTo }) => {
       {/* Immediate Feedback Popup */}
       {currentFeedbackData && (
         <ImmediateFeedback
+          key={`feedback-q${currentQuestionIndex}`} // Unique key per question to ensure fresh component for each question
           isVisible={showImmediateFeedback}
           isCorrect={currentFeedbackData.isCorrect}
           question={currentFeedbackData.question}

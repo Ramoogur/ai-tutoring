@@ -307,8 +307,12 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
   
   // AI-Enhanced initialization with adaptive difficulty
   useEffect(() => {
+    // Only run once on mount - use a flag to prevent re-initialization
+    let isInitialized = false;
+    
     (async () => {
-      if (!topic || !user) return;
+      if (!topic || !user || isInitialized) return;
+      isInitialized = true;
       
       // Reset quiz state
       setCurrentQuestionIndex(0);
@@ -349,13 +353,19 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
       setDifficulty(savedDifficulty); // Update React state for UI display
       console.log(`🎯 Starting quiz at difficulty: ${difficultyLevel}`);
       
-      // Prepare questions with AI selection
+      // Prepare questions with AI selection - ONLY ONCE
       initializeQuiz(difficultyLevel);
       
     })();
-  }, [topic, user]);
+  }, []); // Empty dependency array - only run once on mount
 
   const initializeQuiz = async (difficultyLevel = difficulty, focusTypes = []) => {
+    // Prevent re-initialization if questions are already loaded
+    if (questions.length > 0 && currentQuestionIndex < questions.length) {
+      console.log('⚠️ Questions already loaded, skipping re-initialization');
+      return;
+    }
+    
     setIsLoading(true);
     
     let selectedQuestions = [];
@@ -625,9 +635,11 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     const question = getCurrentQuestion();
     const targetCount = question.count || parseInt(question.answer) || 0;
     
-    // Prevent drawing more than required
-    if (drawnObjects.length >= targetCount) {
-      console.log(`Already drew ${targetCount} objects. Clear to draw more.`);
+    // Allow users to draw more or less than required (they'll get feedback after submitting)
+    // Set a reasonable maximum limit to prevent abuse (3x the target or max 20)
+    const maxAllowed = Math.min(targetCount * 3, 20);
+    if (drawnObjects.length >= maxAllowed) {
+      console.log(`Maximum ${maxAllowed} objects reached. Clear to draw more.`);
       return;
     }
     
@@ -636,9 +648,10 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
     
-    // Calculate grid layout based on target count
-    const cols = Math.ceil(Math.sqrt(targetCount));
-    const rows = Math.ceil(targetCount / cols);
+    // Calculate grid layout based on maximum possible objects for better spacing
+    const layoutCount = Math.max(targetCount, drawnObjects.length + 1);
+    const cols = Math.ceil(Math.sqrt(layoutCount * 1.5)); // Extra space for overflow
+    const rows = Math.ceil(layoutCount / cols);
     const cellWidth = canvasWidth / cols;
     const cellHeight = canvasHeight / rows;
     
@@ -852,6 +865,65 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
             errorType = 'wrong_calculation';
             detailedFeedback = `You answered ${problemAnswer}, but the correct answer is ${correctProblemAnswer}`;
           }
+        }
+        break;
+        
+      case 'coloring':
+        const coloredCount = coloredObjects.length;
+        const targetColorCount = parseInt(question.answer);
+        isCorrect = coloredCount === targetColorCount;
+        userResponse = `colored ${coloredCount} objects`;
+        
+        if (!isCorrect) {
+          if (coloredCount > targetColorCount) {
+            errorType = 'too_many_colored';
+            detailedFeedback = `You colored ${coloredCount}, but need exactly ${targetColorCount}`;
+          } else if (coloredCount < targetColorCount) {
+            errorType = 'too_few_colored';
+            detailedFeedback = `You colored ${coloredCount}, but need ${targetColorCount}`;
+          }
+        }
+        break;
+        
+      case 'sequence':
+        // Find the missing index and check if user filled it correctly
+        const missingIdx = question.missingIndex;
+        const userSequenceAnswer = sequenceAnswers[missingIdx];
+        isCorrect = userSequenceAnswer === question.answer;
+        userResponse = `filled in ${userSequenceAnswer || 'nothing'}`;
+        
+        if (!isCorrect) {
+          if (!userSequenceAnswer || userSequenceAnswer === '') {
+            errorType = 'no_sequence_answer';
+            detailedFeedback = 'Please fill in the missing number';
+          } else {
+            errorType = 'wrong_sequence';
+            detailedFeedback = `You wrote ${userSequenceAnswer}, but the correct answer is ${question.answer}`;
+          }
+        }
+        break;
+        
+      case 'comparison':
+        isCorrect = selectedGroup === question.answer;
+        userResponse = selectedGroup || 'no selection';
+        
+        if (!isCorrect) {
+          errorType = selectedGroup ? 'wrong_comparison' : 'no_selection';
+          detailedFeedback = selectedGroup 
+            ? `You selected ${selectedGroup}, but the correct answer is ${question.answer}` 
+            : 'Please make a selection';
+        }
+        break;
+        
+      case 'odd_one_out':
+        isCorrect = selectedOption === question.answer;
+        userResponse = selectedOption || 'no selection';
+        
+        if (!isCorrect) {
+          errorType = selectedOption ? 'wrong_odd_one_out' : 'no_selection';
+          detailedFeedback = selectedOption 
+            ? `You selected ${selectedOption}, but the correct answer is ${question.answer}` 
+            : 'Please select the number that doesn\'t belong';
         }
         break;
         
@@ -1276,12 +1348,38 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           </p>
         </div>
         
-        <div className="drawing-info">
+        <div className="drawing-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <p className={isComplete ? 'complete' : isTooMany ? 'too-many' : ''}>
             {isFrench ? `${translatedUITexts['Objects drawn:'] || 'Objets dessinés:'} ${drawnObjects.length} / ${targetCount}` : `Objects drawn: ${drawnObjects.length} / ${targetCount}`}
             {isComplete && <span className="success-icon"> ✓</span>}
             {isTooMany && <span className="warning-icon"> ⚠</span>}
           </p>
+          {drawnObjects.length > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setDrawnObjects([]);
+                // Clear canvas
+                const canvas = canvasRef.current;
+                if (canvas) {
+                  const ctx = canvas.getContext('2d');
+                  ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+              }}
+              style={{
+                padding: '6px 12px',
+                fontSize: '12px',
+                background: '#ff6b6b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+              title="Clear all objects"
+            >
+              🗑️ Clear All
+            </button>
+          )}
         </div>
         
         <div className="canvas-wrapper" style={{ position: 'relative', display: 'inline-block' }}>
@@ -1443,6 +1541,10 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
     const objectEmoji = countingObjects[objectType] || '❤️';
     const totalObjects = Math.max(targetCount + 2, 8); // Show more objects than needed
     
+    const isCorrect = coloredObjects.length === targetCount;
+    const isTooMany = coloredObjects.length > targetCount;
+    const isTooFew = coloredObjects.length < targetCount && coloredObjects.length > 0;
+    
     return (
       <div className="coloring-container">
         <div className="coloring-instruction">
@@ -1452,23 +1554,21 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           {Array.from({ length: totalObjects }, (_, i) => (
             <div
               key={i}
-              className={`colorable-object ${coloredObjects.includes(i) ? 'colored' : ''} ${
-                coloredObjects.length >= targetCount && !coloredObjects.includes(i) ? 'disabled' : ''
-              }`}
+              className={`colorable-object ${coloredObjects.includes(i) ? 'colored' : ''}`}
               onClick={() => {
                 if (coloredObjects.includes(i)) {
                   // Always allow uncoloring
                   setColoredObjects(prev => prev.filter(idx => idx !== i));
-                } else if (coloredObjects.length < targetCount) {
-                  // Only allow coloring if under the limit
+                } else {
+                  // Allow coloring any object (removed the restriction)
                   setColoredObjects(prev => [...prev, i]);
                 }
               }}
               style={{
-                backgroundColor: coloredObjects.includes(i) ? 'red' : 'transparent',
+                backgroundColor: coloredObjects.includes(i) ? '#FFD700' : 'transparent',
                 border: '2px solid #ccc',
-                cursor: coloredObjects.length >= targetCount && !coloredObjects.includes(i) ? 'not-allowed' : 'pointer',
-                opacity: coloredObjects.length >= targetCount && !coloredObjects.includes(i) ? 0.5 : 1
+                cursor: 'pointer',
+                opacity: 1
               }}
             >
               {objectEmoji}
@@ -1476,10 +1576,11 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
           ))}
         </div>
         <div className="coloring-status">
-          <p className={coloredObjects.length === targetCount ? 'correct' : coloredObjects.length > targetCount ? 'over-limit' : ''}>
+          <p className={isCorrect ? 'correct' : isTooMany ? 'over-limit' : isTooFew ? 'under-limit' : ''}>
             {isFrench ? `${translatedUITexts['Colored:'] || 'Coloré:'} ${coloredObjects.length} / ${targetCount}` : `Colored: ${coloredObjects.length} / ${targetCount}`}
-            {coloredObjects.length > targetCount && <span className="warning"> {isFrench ? `(${translatedUITexts['Too many!'] || 'Trop!'})` : '(Too many!)'}</span>}
-            {coloredObjects.length === targetCount && <span className="success"> ✓ {isFrench ? (translatedUITexts['Perfect!'] || 'Parfait!') : 'Perfect!'}</span>}
+            {isTooMany && <span className="warning"> ⚠ {isFrench ? (translatedUITexts['Too many!'] || 'Trop!') : 'Too many!'}</span>}
+            {isCorrect && <span className="success"> ✓ {isFrench ? (translatedUITexts['Perfect!'] || 'Parfait!') : 'Perfect!'}</span>}
+            {isTooFew && <span className="info"> 💡 {isFrench ? (translatedUITexts['Need more'] || 'Plus nécessaire') : 'Need more'}</span>}
           </p>
         </div>
       </div>
@@ -1660,15 +1761,14 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
       case 'drawing':
         return drawnObjects.length > 0;
       case 'multiple_choice':
-        return selectedOption !== '';
       case 'matching':
-        return matchedPairs.length > 0;
+      case 'odd_one_out':
+        return selectedOption !== '';
       case 'coloring':
         return coloredObjects.length > 0;
       case 'sequence':
         return sequenceAnswers.some(answer => answer !== '');
       case 'comparison':
-      case 'odd_one_out':
         return selectedGroup !== '';
       case 'word_problem':
         return drawnObjects.length > 0 && userAnswer.trim() !== '';
@@ -1809,6 +1909,7 @@ const NumbersCounting = ({ topic, user, navigateTo }) => {
       {/* Immediate Feedback Popup */}
       {currentFeedbackData && (
         <ImmediateFeedback
+          key={`feedback-q${currentQuestionIndex}`} // Unique key per question to ensure fresh component for each question
           isVisible={showImmediateFeedback}
           isCorrect={currentFeedbackData.isCorrect}
           question={currentFeedbackData.question}

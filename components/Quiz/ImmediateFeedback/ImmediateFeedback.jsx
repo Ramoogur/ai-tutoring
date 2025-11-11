@@ -12,25 +12,43 @@ const ImmediateFeedback = ({
 }) => {
   const [feedback, setFeedback] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [hasGeneratedFeedback, setHasGeneratedFeedback] = useState(false);
 
   useEffect(() => {
-    if (isVisible) {
+    // Only generate feedback ONCE when component becomes visible
+    if (isVisible && !hasGeneratedFeedback) {
       loadFeedback();
     }
-  }, [isVisible]);
+  }, [isVisible, hasGeneratedFeedback]);
 
   const loadFeedback = async () => {
+    // Prevent multiple generations
+    if (hasGeneratedFeedback) {
+      console.log('⚠️ Feedback already generated, skipping regeneration');
+      return;
+    }
+    
     setIsLoading(true);
+    setHasGeneratedFeedback(true); // Mark as generated immediately to prevent duplicates
     
-    const aiResponse = await generateImmediateFeedback({
-      question,
-      userAnswer,
-      correctAnswer,
-      isCorrect
-    });
-    
-    setFeedback(aiResponse);
-    setIsLoading(false);
+    try {
+      const aiResponse = await generateImmediateFeedback({
+        question,
+        userAnswer,
+        correctAnswer,
+        isCorrect
+      });
+      
+      setFeedback(aiResponse);
+      console.log('✅ Feedback generated and locked');
+    } catch (error) {
+      console.error('❌ Error generating feedback:', error);
+      setFeedback(isCorrect 
+        ? 'Great job! Keep up the good work!' 
+        : 'Nice try! Keep practicing and you\'ll get it!');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isVisible) return null;

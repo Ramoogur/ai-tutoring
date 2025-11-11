@@ -62,10 +62,17 @@ const Time = ({ topic, user, navigateTo }) => {
     return difficultyMap[aiDifficulty] || aiDifficulty.toLowerCase();
   };
 
-  // AI-Enhanced initialization with adaptive difficulty
+  // AI-Enhanced initialization with adaptive difficulty - ONLY ONCE
   useEffect(() => {
+    let isInitialized = false;
+    
     (async () => {
-      if (!topic || !user) return;
+      // Prevent re-initialization
+      if (!topic || !user || isInitialized || questions.length > 0) {
+        if (questions.length > 0) console.log('⚠️ Time quiz already initialized, skipping');
+        return;
+      }
+      isInitialized = true;
       
       // Reset quiz state
       setCurrentQuestionIndex(0);
@@ -116,7 +123,7 @@ const Time = ({ topic, user, navigateTo }) => {
       setDifficulty(savedDifficulty); // Update React state for UI display
       console.log(`🎯 Starting quiz at difficulty: ${difficultyLevel}`);
       
-      // Get all available questions across difficulties for AI selection
+      // Get all available questions across difficulties for AI selection - SHUFFLE ONLY ONCE
       const allQuestions = [
         ...(timeQuestions.easy || []).map(q => ({ ...q, difficulty: 'easy' })),
         ...(timeQuestions.medium || []).map(q => ({ ...q, difficulty: 'medium' })),
@@ -149,6 +156,7 @@ const Time = ({ topic, user, navigateTo }) => {
       }
       
       setQuestions(selectedQuestions);
+      console.log(`✅ Time quiz initialized with ${selectedQuestions.length} questions at ${difficultyLevel} level`);
       
       // Start tracking the first question with AI
       if (selectedQuestions.length > 0) {
@@ -157,7 +165,7 @@ const Time = ({ topic, user, navigateTo }) => {
       }
       
     })();
-  }, [topic, user]);
+  }, []); // Empty dependency array - only run once on mount
 
   // Restart quiz with updated difficulty and reshuffled questions
   const restartQuiz = async () => {
@@ -422,6 +430,7 @@ const Time = ({ topic, user, navigateTo }) => {
           </svg>
         `;
       case 'bedtime_story':
+      case 'reading_bedtime_story':
         return `
           <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="image-svg">
             <!-- Night scene background -->
@@ -1682,6 +1691,7 @@ const Time = ({ topic, user, navigateTo }) => {
       {/* Immediate Feedback Popup */}
       {currentFeedbackData && (
         <ImmediateFeedback
+          key={`feedback-q${currentQuestionIndex}`} // Unique key per question to ensure fresh component for each question
           isVisible={showImmediateFeedback}
           isCorrect={currentFeedbackData.isCorrect}
           question={currentFeedbackData.question}

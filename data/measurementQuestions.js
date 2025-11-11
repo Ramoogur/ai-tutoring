@@ -540,31 +540,6 @@ export const measurementQuestions = {
       explanation: 'Full bags weigh more because they have things inside.'
     },
     
-    // Match Pairs
-    {
-      id: 'match_pairs_1',
-      type: 'match_pairs',
-      subtopic: 'length',
-      prompt: 'Match the objects with their lengths',
-      pairs: [
-        { left: 'short_pencil', right: 'short', leftImage: 'pencil_3units', rightText: 'Short' },
-        { left: 'medium_pencil', right: 'medium', leftImage: 'pencil_4units', rightText: 'Medium' },
-        { left: 'long_pencil', right: 'long', leftImage: 'pencil_6units', rightText: 'Long' }
-      ],
-      explanation: 'Match each pencil with its correct length description.'
-    },
-    {
-      id: 'match_pairs_2',
-      type: 'match_pairs',
-      subtopic: 'height',
-      prompt: 'Match the objects with their heights',
-      pairs: [
-        { left: 'short_tree', right: 'short', leftImage: 'tree_4units', rightText: 'Short' },
-        { left: 'tall_tree', right: 'tall', leftImage: 'tree_6units', rightText: 'Tall' },
-        { left: 'very_tall_tree', right: 'very_tall', leftImage: 'tree_8units', rightText: 'Very Tall' }
-      ],
-      explanation: 'Match each tree with its correct height description.'
-    },
     {
       id: 'match_pairs_3',
       type: 'pick_comparison',
@@ -883,31 +858,6 @@ export const measurementQuestions = {
       correct: 'barely bigger',
       context: { blue: 1.2, red: 1.0 },
       explanation: '"Barely" means just a tiny bit bigger.'
-    },
-    
-    // Match Pairs - Precise measurements
-    {
-      id: 'match_pairs_hard_1',
-      type: 'match_pairs',
-      subtopic: 'length',
-      prompt: 'Match the objects with their precise lengths',
-      pairs: [
-        { left: 'pencil_9cm', right: '9cm', leftImage: 'pencil_9units', rightText: '9 cm' },
-        { left: 'pencil_10cm', right: '10cm', leftImage: 'pencil_10units', rightText: '10 cm' },
-        { left: 'pencil_11cm', right: '11cm', leftImage: 'pencil_11units', rightText: '11 cm' }
-      ],
-      explanation: 'Match each pencil with its exact measurement.'
-    },
-    {
-      id: 'match_pairs_hard_2',
-      type: 'match_pairs',
-      subtopic: 'height',
-      prompt: 'Match the bottles with their heights',
-      pairs: [
-        { left: 'bottle_12cm', right: '12cm', leftImage: 'bottle_12units', rightText: '12 cm' },
-        { left: 'bottle_14cm', right: '14cm', leftImage: 'bottle_14units', rightText: '14 cm' }
-      ],
-      explanation: 'These bottles are very close in height - measure carefully.'
     },
     
     // Sort 2 - Fine distinctions

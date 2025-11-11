@@ -81,10 +81,17 @@ const Patterns = ({ topic, user, navigateTo }) => {
     return getDifficultyFromAccuracy(accuracy);
   };
 
-  // Initialize quiz
+  // Initialize quiz - ONLY ONCE
   useEffect(() => {
+    let isInitialized = false;
+    
     (async () => {
-      if (!topic || !user) return;
+      // Prevent re-initialization
+      if (!topic || !user || isInitialized || questions.length > 0) {
+        if (questions.length > 0) console.log('⚠️ Patterns quiz already initialized, skipping');
+        return;
+      }
+      isInitialized = true;
       
       // Reset quiz state
       setCurrentQuestionIndex(0);
@@ -108,16 +115,16 @@ const Patterns = ({ topic, user, navigateTo }) => {
       setCreatedPattern([]);
       setTextInput('');
       
-      // Get questions based on determined difficulty and shuffle for variety
+      // Get questions based on determined difficulty - SHUFFLE ONLY ONCE
       const difficultyQuestions = patternsQuestions[difficultyLevel] || patternsQuestions.easy;
       const shuffledQuestions = [...difficultyQuestions].sort(() => Math.random() - 0.5);
       const selectedQuestions = shuffledQuestions.slice(0, 5);
       setQuestions(selectedQuestions);
       setQuestionStartTime(Date.now());
       
-      console.log(`🧩 Patterns quiz starting at ${difficultyLevel} difficulty with ${selectedQuestions.length} questions`);
+      console.log(`✅ Patterns quiz initialized at ${difficultyLevel} difficulty with ${selectedQuestions.length} questions`);
     })();
-  }, [topic, user]);
+  }, []); // Empty dependency array - only run once on mount
 
   // Generate picture icons for weather/nature patterns
   const generatePictureIcon = (type, color, size = 60) => {
@@ -305,6 +312,16 @@ const Patterns = ({ topic, user, navigateTo }) => {
     if (createdPattern.length < 6) {
       setCreatedPattern(prev => [...prev, item]);
     }
+  };
+
+  // Remove item from pattern (undo functionality)
+  const removeFromPattern = (index) => {
+    setCreatedPattern(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Clear all dropped items (for drag-drop patterns)
+  const clearDroppedItems = () => {
+    setDroppedItems([]);
   };
 
   // Canvas tracing handlers
@@ -868,12 +885,52 @@ const Patterns = ({ topic, user, navigateTo }) => {
                 onDragOver={handleDragOver}
               >
                 {droppedItems.map((item, index) => (
-                  <div key={index} className="dropped-item">
+                  <div 
+                    key={index} 
+                    className="dropped-item"
+                    style={{ position: 'relative', cursor: 'pointer' }}
+                    onClick={() => setDroppedItems(prev => prev.filter((_, i) => i !== index))}
+                    title="Click to remove"
+                  >
                     {generateShapeSVG(item.shape, item.color, 60)}
+                    <span style={{
+                      position: 'absolute',
+                      top: '-5px',
+                      right: '-5px',
+                      background: '#ff6b6b',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '18px',
+                      height: '18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      zIndex: 10
+                    }}>×</span>
                   </div>
                 ))}
                 {droppedItems.length < currentQuestion.needs && (
                   <div className="drop-placeholder">Drop here</div>
+                )}
+                {droppedItems.length > 0 && (
+                  <button
+                    onClick={clearDroppedItems}
+                    style={{
+                      marginTop: '10px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      background: '#ff6b6b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer'
+                    }}
+                    title="Clear all"
+                  >
+                    Clear All
+                  </button>
                 )}
               </div>
             </div>
@@ -958,8 +1015,25 @@ const Patterns = ({ topic, user, navigateTo }) => {
                   key={index} 
                   className="created-item"
                   onClick={() => removeFromPattern(index)}
+                  title="Click to remove"
+                  style={{ position: 'relative', cursor: 'pointer' }}
                 >
                   {generateShapeSVG(item.shape, item.color, 60)}
+                  <span style={{
+                    position: 'absolute',
+                    top: '-5px',
+                    right: '-5px',
+                    background: '#ff6b6b',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '18px',
+                    height: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }}>×</span>
                 </div>
               ))}
               {Array.from({ length: 6 - createdPattern.length }).map((_, index) => (
@@ -1021,16 +1095,66 @@ const Patterns = ({ topic, user, navigateTo }) => {
                     </div>
                   </div>
                 ))}
-                <div className="next-placeholder">?</div>
+                {/* Drop zones for the pattern continuation */}
+                {Array.from({ length: currentQuestion.needs || 1 }, (_, index) => (
+                  <div 
+                    key={`drop-${index}`}
+                    className="scene-drop-zone"
+                    onDrop={(e) => handleDrop(e, index)}
+                    onDragOver={handleDragOver}
+                  >
+                    {droppedItems[index] ? (
+                      <div 
+                        className="dropped-animal"
+                        style={{ position: 'relative', cursor: 'pointer' }}
+                        onClick={() => {
+                          setDroppedItems(prev => {
+                            const newItems = [...prev];
+                            newItems[index] = undefined;
+                            return newItems;
+                          });
+                        }}
+                        title="Click to remove"
+                      >
+                        <div className="animal-icon" style={{backgroundColor: droppedItems[index].color}}>
+                          {droppedItems[index].animal === 'cat' && '🐱'}
+                          {droppedItems[index].animal === 'dog' && '🐶'}
+                          {droppedItems[index].animal === 'bird' && '🐦'}
+                          {droppedItems[index].animal === 'fish' && '🐠'}
+                        </div>
+                        <span style={{
+                          position: 'absolute',
+                          top: '-5px',
+                          right: '-5px',
+                          background: '#ff6b6b',
+                          color: 'white',
+                          borderRadius: '50%',
+                          width: '18px',
+                          height: '18px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          zIndex: 10
+                        }}>×</span>
+                      </div>
+                    ) : (
+                      <div className="drop-placeholder">?</div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
             
             <div className="scene-options">
+              <div className="draggable-instructions">Drag animals to continue the pattern:</div>
               {currentQuestion.options.map((option, index) => (
                 <div
                   key={index}
-                  className={`scene-option ${selectedOption === index ? 'selected' : ''}`}
-                  onClick={() => handleOptionSelect(index)}
+                  className="scene-option draggable"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, option)}
                 >
                   <div className="animal-icon" style={{backgroundColor: option.color}}>
                     {option.animal === 'cat' && '🐱'}
@@ -1042,6 +1166,23 @@ const Patterns = ({ topic, user, navigateTo }) => {
                 </div>
               ))}
             </div>
+            {droppedItems.filter(item => item).length > 0 && (
+              <button
+                onClick={() => setDroppedItems([])}
+                style={{
+                  marginTop: '15px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  background: '#ff6b6b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
+              >
+                Clear All
+              </button>
+            )}
           </div>
         )}
 
@@ -1159,8 +1300,35 @@ const Patterns = ({ topic, user, navigateTo }) => {
                   onDragOver={handleDragOver}
                 >
                   {droppedItems[index] ? (
-                    <div className="dropped-item">
+                    <div 
+                      className="dropped-item"
+                      style={{ position: 'relative', cursor: 'pointer' }}
+                      onClick={() => {
+                        setDroppedItems(prev => {
+                          const newItems = [...prev];
+                          newItems[index] = undefined;
+                          return newItems;
+                        });
+                      }}
+                      title="Click to remove"
+                    >
                       {generatePictureIcon(droppedItems[index].type, droppedItems[index].color)}
+                      <span style={{
+                        position: 'absolute',
+                        top: '-5px',
+                        right: '-5px',
+                        background: '#ff6b6b',
+                        color: 'white',
+                        borderRadius: '50%',
+                        width: '18px',
+                        height: '18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        zIndex: 10
+                      }}>×</span>
                     </div>
                   ) : (
                     <div className="drop-placeholder">Drop here</div>
@@ -1205,7 +1373,7 @@ const Patterns = ({ topic, user, navigateTo }) => {
               ((currentQuestion.type === 'number-pattern-next' || currentQuestion.type === 'number-pattern-missing' || currentQuestion.type === 'number-pattern-direction') && selectedOption === null) ||
               (currentQuestion.type === 'create-your-own' && createdPattern.length < 6) ||
               (currentQuestion.type === 'describe-rule' && selectedOption === null) ||
-              (currentQuestion.type === 'scene-pattern' && selectedOption === null) ||
+              (currentQuestion.type === 'scene-pattern' && droppedItems.filter(item => item).length < (currentQuestion.needs || 1)) ||
               (currentQuestion.type === 'complete-pattern-trace' && tracedShapes.length < currentQuestion.toTrace.length) ||
               (currentQuestion.type === 'fix-the-mistake' && selectedOption === null) ||
               (currentQuestion.type === 'mixed-attribute-pattern' && selectedOption === null) ||
@@ -1220,6 +1388,7 @@ const Patterns = ({ topic, user, navigateTo }) => {
       {/* Immediate Feedback Popup */}
       {currentFeedbackData && (
         <ImmediateFeedback
+          key={`feedback-q${currentQuestionIndex}`} // Unique key per question to ensure fresh component for each question
           isVisible={showImmediateFeedback}
           isCorrect={currentFeedbackData.isCorrect}
           question={currentFeedbackData.question}

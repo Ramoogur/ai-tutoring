@@ -68,10 +68,17 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
     return getDifficultyFromAccuracy(accuracy);
   };
 
-  // AI-Enhanced initialization with adaptive difficulty
+  // AI-Enhanced initialization with adaptive difficulty - ONLY ONCE
   useEffect(() => {
+    let isInitialized = false;
+    
     (async () => {
-      if (!topic || !user) return;
+      // Prevent re-initialization
+      if (!topic || !user || isInitialized || questions.length > 0) {
+        if (questions.length > 0) console.log('⚠️ Shapes & Colors quiz already initialized, skipping');
+        return;
+      }
+      isInitialized = true;
       
       // Reset quiz state
       setCurrentQuestionIndex(0);
@@ -114,7 +121,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
       setDifficulty(savedDifficulty); // Update React state for UI display
       console.log(`🎯 Starting quiz at difficulty: ${difficultyLevel}`);
       
-      // Prepare questions with AI selection
+      // Prepare questions with AI selection - SHUFFLE ONLY ONCE
       let selectedQuestions = [];
       
       // Get all available questions across difficulties for AI selection
@@ -136,6 +143,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
       }
       
       setQuestions(selectedQuestions);
+      console.log(`✅ Shapes & Colors quiz initialized with ${selectedQuestions.length} questions`);
       
       // Start tracking the first question with AI
       if (selectedQuestions.length > 0) {
@@ -144,7 +152,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
       }
       
     })();
-  }, [topic, user]);
+  }, []); // Empty dependency array - only run once on mount
 
   // Restart quiz with updated difficulty and reshuffled questions
   const restartQuiz = async () => {
@@ -281,6 +289,20 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
       setDroppedShapes(prev => ({...prev, [target]: draggedItem}));
       setDraggedItem(null);
     }
+  };
+
+  // Remove a dropped shape from matching zone (undo functionality)
+  const removeDroppedShape = (targetName) => {
+    setDroppedShapes(prev => {
+      const updated = {...prev};
+      delete updated[targetName];
+      return updated;
+    });
+    setMatchedPairs(prev => {
+      const updated = new Set(prev);
+      updated.delete(targetName);
+      return updated;
+    });
   };
 
   const handleDragOver = (e) => {
@@ -420,6 +442,16 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
     setConstructedShapes(prev => [...prev, newShape]);
   };
 
+  // Remove a constructed shape (undo functionality)
+  const removeConstructedShape = (shapeId) => {
+    setConstructedShapes(prev => prev.filter(shape => shape.id !== shapeId));
+  };
+
+  // Clear all constructed shapes
+  const clearAllConstructed = () => {
+    setConstructedShapes([]);
+  };
+
   // Sorting functionality - Allow ALL items to be dropped (learning from mistakes)
   const handleSortDrop = (e) => {
     e.preventDefault();
@@ -439,6 +471,16 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
     setSortedItems(prev => [...prev, itemKey]);
     
     setDraggedItem(null);
+  };
+
+  // Remove item from sorted area (undo functionality)
+  const removeSortedItem = (indexToRemove) => {
+    setSortedItems(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  // Clear all sorted items
+  const clearAllSorted = () => {
+    setSortedItems([]);
   };
 
   // Helper function to get color name from hex
@@ -927,20 +969,39 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
                           onDragStart={(e) => {
                             handleDragStart(e, droppedShape);
                             // Remove from current position when re-dragging
-                            setDroppedShapes(prev => {
-                              const updated = {...prev};
-                              delete updated[targetName];
-                              return updated;
-                            });
-                            setMatchedPairs(prev => {
-                              const updated = new Set(prev);
-                              updated.delete(targetName);
-                              return updated;
-                            });
+                            removeDroppedShape(targetName);
                           }}
+                          style={{ position: 'relative' }}
                         >
                           {generateShapeSVG(droppedShape.shape, droppedShape.color, 60)}
                           <span className="shape-label">{targetName}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeDroppedShape(targetName);
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: '-8px',
+                              right: '-8px',
+                              background: '#ff6b6b',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: '20px',
+                              height: '20px',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              fontWeight: 'bold',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              zIndex: 10
+                            }}
+                            title="Remove this shape"
+                          >
+                            ×
+                          </button>
                         </div>
                       ) : (
                         <div className="empty-zone">{targetName}</div>
@@ -994,13 +1055,53 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
                 <div className="drop-zone-content">
                   {sortedItems.length > 0 ? (
                     <div className="sorted-items-display">
-                      <div className="sorted-count">{sortedItems.length} items sorted</div>
+                      <div className="sorted-count">
+                        {sortedItems.length} items sorted
+                        <button 
+                          className="clear-sorted-btn"
+                          onClick={clearAllSorted}
+                          title="Clear all"
+                          style={{
+                            marginLeft: '10px',
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            background: '#ff6b6b',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Clear All
+                        </button>
+                      </div>
                       <div className="sorted-shapes">
                         {sortedItems.map((shapeKey, index) => {
                           const [shape, color] = shapeKey.split('-');
                           return (
-                            <div key={index} className="sorted-shape">
+                            <div 
+                              key={index} 
+                              className="sorted-shape"
+                              style={{ position: 'relative', cursor: 'pointer' }}
+                              onClick={() => removeSortedItem(index)}
+                              title="Click to remove"
+                            >
                               {generateShapeSVG(shape, color, 40)}
+                              <span style={{
+                                position: 'absolute',
+                                top: '-5px',
+                                right: '-5px',
+                                background: '#ff6b6b',
+                                color: 'white',
+                                borderRadius: '50%',
+                                width: '18px',
+                                height: '18px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '12px',
+                                fontWeight: 'bold'
+                              }}>×</span>
                             </div>
                           );
                         })}
@@ -1135,6 +1236,24 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
             <div className="construction-instructions">
               <h4>🤖 Build Your Robot!</h4>
               <p>Click the shapes below to add robot parts. Then drag them to the right spot to finish your robot:</p>
+              {constructedShapes.length > 0 && (
+                <button
+                  className="clear-construction-btn"
+                  onClick={clearAllConstructed}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                    background: '#ff6b6b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    marginTop: '10px'
+                  }}
+                >
+                  🗑️ Clear All Shapes
+                </button>
+              )}
               <div className="robot-guide">
                 <span>🔺 Triangle = Head (top)</span>
                 <span>⬜ Square = Body (middle)</span>
@@ -1219,8 +1338,36 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
                     onDragEnd={(e) => {
                       e.target.style.opacity = '1';
                     }}
+                    onDoubleClick={() => removeConstructedShape(shape.id)}
+                    title="Double-click to remove"
                   >
                     {generateShapeSVG(shape.shape, shape.color, 60)}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeConstructedShape(shape.id);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: '-8px',
+                        right: '-8px',
+                        background: '#ff6b6b',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10
+                      }}
+                    >
+                      ×
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1279,6 +1426,7 @@ const ShapesColors = ({ topic, user, navigateTo }) => {
       {/* Immediate Feedback Popup */}
       {currentFeedbackData && (
         <ImmediateFeedback
+          key={`feedback-q${currentQuestionIndex}`} // Unique key per question to ensure fresh component for each question
           isVisible={showImmediateFeedback}
           isCorrect={currentFeedbackData.isCorrect}
           question={currentFeedbackData.question}

@@ -48,10 +48,17 @@ const Measurement = ({ topic, user, navigateTo }) => {
     return 'easy';
   };
 
-  // Initialize quiz with adaptive difficulty
+  // Initialize quiz with adaptive difficulty - ONLY ONCE
   useEffect(() => {
+    let isInitialized = false;
+    
     (async () => {
-      if (!topic || !user) return;
+      // Prevent re-initialization
+      if (!topic || !user || isInitialized || questions.length > 0) {
+        if (questions.length > 0) console.log('⚠️ Measurement quiz already initialized, skipping');
+        return;
+      }
+      isInitialized = true;
       
       // Reset quiz state
       setCurrentQuestionIndex(0);
@@ -84,7 +91,7 @@ const Measurement = ({ topic, user, navigateTo }) => {
       
       setDifficulty(savedDifficulty);
       
-      // Select questions based on difficulty
+      // Select questions based on difficulty - SHUFFLE ONLY ONCE
       let selectedQuestions = [];
       const questionsForDifficulty = measurementQuestions[savedDifficulty] || [];
       
@@ -92,12 +99,12 @@ const Measurement = ({ topic, user, navigateTo }) => {
         // Shuffle and select 5 questions
         const shuffled = [...questionsForDifficulty].sort(() => Math.random() - 0.5);
         selectedQuestions = shuffled.slice(0, 5);
-        console.log(`Selected ${selectedQuestions.length} questions for ${savedDifficulty} level`);
+        console.log(`✅ Measurement quiz initialized - Selected ${selectedQuestions.length} questions for ${savedDifficulty} level`);
       }
       
       setQuestions(selectedQuestions);
     })();
-  }, [topic, user]);
+  }, []); // Empty dependency array - only run once on mount
 
   // Restart quiz with updated difficulty and reshuffled questions
   const restartQuiz = async () => {
@@ -147,8 +154,8 @@ const Measurement = ({ topic, user, navigateTo }) => {
   };
 
   // Generate SVG for measurement objects
-  const generateMeasurementSVG = (asset, size = 120) => {
-    const assetData = measurementAssets[asset] || {};
+  const generateMeasurementSVG = (asset, size = 120, directAssetData = null) => {
+    const assetData = directAssetData || measurementAssets[asset] || {};
     const { type, color = '#666', length, height, radius, fullness, species, contents } = assetData;
     
     // Ensure size is valid
@@ -701,6 +708,48 @@ const Measurement = ({ topic, user, navigateTo }) => {
           </svg>
         );
       
+      case 'tower':
+        const towerHeight = (height / 200) * size;
+        const towerWidth = size/3;
+        return (
+          <svg width={towerWidth} height={size} className="measurement-svg">
+            {/* Tower base */}
+            <rect x={towerWidth/4} y={size - towerHeight} width={towerWidth/2} height={towerHeight} fill={color} stroke="#333" strokeWidth="2" />
+            {/* Tower segments/floors */}
+            {Array.from({length: Math.floor(towerHeight/25)}, (_, i) => (
+              <line 
+                key={i}
+                x1={towerWidth/4} 
+                y1={size - towerHeight + i * 25} 
+                x2={towerWidth/4 + towerWidth/2} 
+                y2={size - towerHeight + i * 25} 
+                stroke="#333" 
+                strokeWidth="1"
+              />
+            ))}
+            {/* Windows */}
+            {Array.from({length: Math.floor(towerHeight/30)}, (_, floor) => (
+              <rect 
+                key={floor}
+                x={towerWidth/4 + towerWidth/8} 
+                y={size - towerHeight + floor * 30 + 10} 
+                width="8" 
+                height="8" 
+                fill="#FFD700" 
+                stroke="#333" 
+                strokeWidth="1"
+              />
+            ))}
+            {/* Tower top/spire */}
+            <polygon 
+              points={`${towerWidth/4},${size - towerHeight} ${towerWidth/2},${size - towerHeight - 15} ${towerWidth/4 + towerWidth/2},${size - towerHeight}`}
+              fill={color} 
+              stroke="#333" 
+              strokeWidth="2"
+            />
+          </svg>
+        );
+      
       default:
         console.warn(`Missing SVG for asset type: ${type}, asset: ${asset}`);
         return <div className="placeholder-asset" style={{width: validSize, height: validSize/2, border: '2px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#666'}}>{asset}</div>;
@@ -754,15 +803,41 @@ const Measurement = ({ topic, user, navigateTo }) => {
     );
   };
 
-  // Generate coin SVG
-  const generateCoinSVG = (coinType, size = 60) => {
+  // Generate coin SVG - handles both single coins and combinations
+  const generateCoinSVG = (coinImage, size = 60) => {
+    // Handle coin combinations (e.g., 'coins_Rs1_Rs5')
+    if (coinImage.startsWith('coins_')) {
+      // Extract coin types from the combination
+      const coinTypes = coinImage.replace('coins_', '').split('_');
+      
+      return (
+        <div className="coin-combination" style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+          {coinTypes.map((coinType, index) => {
+            const coin = mauritianCoins[coinType];
+            if (!coin) return null;
+            
+            return (
+              <svg key={index} width={size} height={size} className="coin-svg">
+                <circle cx={size/2} cy={size/2} r={size/2 - 2} fill={coin.color} stroke="#333" strokeWidth="2" />
+                <text x={size/2} y={size/2 + 4} textAnchor="middle" fontSize={size/4} fill="#000" fontWeight="bold">
+                  {coinType}
+                </text>
+              </svg>
+            );
+          })}
+        </div>
+      );
+    }
+    
+    // Handle single coin (e.g., 'coin_Rs1')
+    const coinType = coinImage.replace('coin_', '');
     const coin = mauritianCoins[coinType];
     if (!coin) return <div>Coin not found</div>;
     
     return (
       <svg width={size} height={size} className="coin-svg">
         <circle cx={size/2} cy={size/2} r={size/2 - 2} fill={coin.color} stroke="#333" strokeWidth="2" />
-        <text x={size/2} y={size/2 + 4} textAnchor="middle" fontSize={size/4} fill="#000">
+        <text x={size/2} y={size/2 + 4} textAnchor="middle" fontSize={size/4} fill="#000" fontWeight="bold">
           {coinType}
         </text>
       </svg>
@@ -806,6 +881,15 @@ const Measurement = ({ topic, user, navigateTo }) => {
     e.preventDefault();
   };
 
+  // Remove dropped item (undo functionality)
+  const removeDroppedItem = (target) => {
+    setDroppedItems(prev => {
+      const updated = {...prev};
+      delete updated[target];
+      return updated;
+    });
+  };
+
   // Ordering functionality for order_3 questions
   const handleOrderDrop = (e, position) => {
     e.preventDefault();
@@ -817,11 +901,25 @@ const Measurement = ({ topic, user, navigateTo }) => {
     }
   };
 
-  // Sorting functionality
-  const handleSortDrop = (e) => {
+  // Remove item from order position (undo functionality)
+  const removeOrderedItem = (position) => {
+    const newOrdered = [...orderedItems];
+    newOrdered[position] = null;
+    setOrderedItems(newOrdered);
+  };
+
+  // Clear all ordered items
+  const clearAllOrdered = () => {
+    setOrderedItems([]);
+  };
+
+  // Sorting functionality for sort_2 questions
+  const handleSortDrop = (e, category) => {
     e.preventDefault();
     if (draggedItem) {
-      setSortedItems(prev => [...prev, draggedItem]);
+      // Add the item with its sorted category
+      const itemWithCategory = { ...draggedItem, sortedCategory: category };
+      setSortedItems(prev => [...prev, itemWithCategory]);
       setDraggedItem(null);
     }
   };
@@ -867,9 +965,14 @@ const Measurement = ({ topic, user, navigateTo }) => {
         break;
       
       case 'sort_2':
-        const expectedItems = currentQuestion.items.filter(item => item.category === currentQuestion.targetCategory);
-        isCorrect = sortedItems.length === expectedItems.length &&
-          sortedItems.every(item => expectedItems.some(exp => exp.id === item.id));
+        // Check if all items are sorted and in the correct categories
+        isCorrect = sortedItems.length === currentQuestion.items.length &&
+          sortedItems.every(sortedItem => {
+            // Find the original item to get its correct category
+            const originalItem = currentQuestion.items.find(item => item.id === sortedItem.id);
+            // Check if the sorted category matches the original category
+            return originalItem && sortedItem.sortedCategory === originalItem.category;
+          });
         break;
       
       case 'scene_id':
@@ -1169,7 +1272,26 @@ const Measurement = ({ topic, user, navigateTo }) => {
             </div>
             
             <div className="order-zones">
-              <h4>Drop in correct order:</h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h4>Drop in correct order:</h4>
+                {orderedItems.some(item => item) && (
+                  <button
+                    onClick={clearAllOrdered}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      background: '#ff6b6b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer'
+                    }}
+                    title="Clear all"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
               <div className="drop-zones">
                 {[0, 1, 2].map((position) => (
                   <div
@@ -1177,9 +1299,41 @@ const Measurement = ({ topic, user, navigateTo }) => {
                     className="order-drop-zone"
                     onDrop={(e) => handleOrderDrop(e, position)}
                     onDragOver={handleDragOver}
+                    style={{ position: 'relative' }}
                   >
                     <div className="position-label">{position + 1}</div>
-                    {orderedItems[position] && generateMeasurementSVG(orderedItems[position].image)}
+                    {orderedItems[position] ? (
+                      <div style={{ position: 'relative' }}>
+                        {generateMeasurementSVG(orderedItems[position].image)}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeOrderedItem(position);
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: '-8px',
+                            right: '-8px',
+                            background: '#ff6b6b',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 10
+                          }}
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -1191,24 +1345,92 @@ const Measurement = ({ topic, user, navigateTo }) => {
         {currentQuestion.type === 'complete_sentence' && (
           <div className="complete-sentence-question">
             <div className="sentence-context">
-              {currentQuestion.context && (
-                <div className="context-display">
-                  <div className="ruler-comparison">
-                    <div className="ruler-a">
-                      <span>Ruler A:</span>
-                      <svg width={currentQuestion.context.rulerA * 100} height="30">
-                        <rect width={currentQuestion.context.rulerA * 100} height="20" fill="#8B4513" stroke="#333" strokeWidth="2" />
-                      </svg>
-                    </div>
-                    <div className="ruler-b">
-                      <span>Ruler B:</span>
-                      <svg width={currentQuestion.context.rulerB * 100} height="30">
-                        <rect width={currentQuestion.context.rulerB * 100} height="20" fill="#8B4513" stroke="#333" strokeWidth="2" />
-                      </svg>
+              {currentQuestion.context && (() => {
+                const ctx = currentQuestion.context;
+                const subtopic = currentQuestion.subtopic;
+                
+                // Determine object type based on subtopic
+                let objectType = 'ruler'; // default
+                if (subtopic === 'height') objectType = 'tower';
+                else if (subtopic === 'length') objectType = 'stick';
+                else if (subtopic === 'size') objectType = 'circle';
+                
+                // Get context keys (could be rulerA/rulerB, left/right, stick1/stick2, etc.)
+                const keys = Object.keys(ctx);
+                const firstKey = keys[0];
+                const secondKey = keys[1];
+                
+                // Create temporary asset data for rendering
+                const firstAsset = {
+                  type: objectType,
+                  color: '#708090',
+                  height: objectType === 'tower' ? ctx[firstKey] * 100 : undefined,
+                  length: objectType !== 'tower' ? ctx[firstKey] * 100 : undefined,
+                  radius: objectType === 'circle' ? ctx[firstKey] * 30 : undefined
+                };
+                
+                const secondAsset = {
+                  type: objectType,
+                  color: '#708090',
+                  height: objectType === 'tower' ? ctx[secondKey] * 100 : undefined,
+                  length: objectType !== 'tower' ? ctx[secondKey] * 100 : undefined,
+                  radius: objectType === 'circle' ? ctx[secondKey] * 30 : undefined
+                };
+                
+                return (
+                  <div className="context-display" style={{ width: '100%', padding: '20px' }}>
+                    <div className="ruler-comparison" style={{ 
+                      display: 'flex', 
+                      gap: '60px', 
+                      justifyContent: 'center', 
+                      alignItems: 'flex-end',
+                      minHeight: '180px',
+                      padding: '20px'
+                    }}>
+                      <div className="ruler-a" style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center',
+                        justifyContent: 'flex-end'
+                      }}>
+                        <span style={{ 
+                          marginBottom: '15px', 
+                          fontWeight: 'bold',
+                          fontSize: '16px'
+                        }}>
+                          {firstKey === 'rulerA' ? 'Ruler A' : 
+                           firstKey === 'left' ? 'Left' : 
+                           firstKey === 'stick1' ? 'First' : 
+                           firstKey.charAt(0).toUpperCase() + firstKey.slice(1)}:
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                          {generateMeasurementSVG('temp_asset_1', 120, firstAsset)}
+                        </div>
+                      </div>
+                      <div className="ruler-b" style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center',
+                        justifyContent: 'flex-end'
+                      }}>
+                        <span style={{ 
+                          marginBottom: '15px', 
+                          fontWeight: 'bold',
+                          fontSize: '16px'
+                        }}>
+                          {secondKey === 'rulerB' ? 'Ruler B' : 
+                           secondKey === 'right' ? 'Right' : 
+                           secondKey === 'stick2' ? 'Second' : 
+                           secondKey.charAt(0).toUpperCase() + secondKey.slice(1)}:
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                          {generateMeasurementSVG('temp_asset_2', 120, secondAsset)}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
             
             <div className="sentence-completion">
@@ -1287,9 +1509,134 @@ const Measurement = ({ topic, user, navigateTo }) => {
                   onClick={() => handleOptionSelect(option.id)}
                 >
                   <div className="option-label">{option.id}</div>
-                  {generateCoinSVG(option.image.replace('coin_', ''))}
+                  {generateCoinSVG(option.image)}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Sort 2 Questions - Binary Sorting */}
+        {currentQuestion.type === 'sort_2' && (
+          <div className="sort-2-question">
+            <div className="items-to-sort">
+              <h4>Items to sort:</h4>
+              <div className="sortable-items">
+                {currentQuestion.items
+                  .filter(item => !sortedItems.some(sorted => sorted.id === item.id))
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="sortable-item"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, item)}
+                    >
+                      {generateMeasurementSVG(item.image)}
+                    </div>
+                  ))}
+              </div>
+            </div>
+            
+            <div className="sort-categories">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h4>Sort into groups:</h4>
+                {sortedItems.length > 0 && (
+                  <button
+                    onClick={() => setSortedItems([])}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      background: '#ff6b6b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer'
+                    }}
+                    title="Clear all"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+              <div className="category-zones" style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
+                {currentQuestion.categories.map((category, index) => {
+                  const itemsInCategory = sortedItems.filter(item => item.sortedCategory === category);
+                  return (
+                    <div
+                      key={category}
+                      className="category-zone"
+                      onDrop={(e) => handleSortDrop(e, category)}
+                      onDragOver={handleDragOver}
+                      style={{
+                        flex: 1,
+                        minHeight: '200px',
+                        border: '3px dashed #ccc',
+                        borderRadius: '12px',
+                        padding: '15px',
+                        background: '#f8f9fa'
+                      }}
+                    >
+                      <div style={{ 
+                        fontSize: '18px', 
+                        fontWeight: 'bold', 
+                        marginBottom: '15px',
+                        textAlign: 'center',
+                        color: '#333'
+                      }}>
+                        {category}
+                      </div>
+                      <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '10px',
+                        alignItems: 'center'
+                      }}>
+                        {itemsInCategory.map((item) => (
+                          <div 
+                            key={item.id} 
+                            style={{ 
+                              position: 'relative',
+                              background: 'white',
+                              padding: '10px',
+                              borderRadius: '8px',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}
+                          >
+                            {generateMeasurementSVG(item.image, 80)}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSortedItems(sortedItems.filter(sorted => sorted.id !== item.id));
+                              }}
+                              style={{
+                                position: 'absolute',
+                                top: '-8px',
+                                right: '-8px',
+                                background: '#ff6b6b',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '24px',
+                                height: '24px',
+                                cursor: 'pointer',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                zIndex: 10
+                              }}
+                              title="Remove"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -1319,6 +1666,7 @@ const Measurement = ({ topic, user, navigateTo }) => {
       {/* Immediate Feedback Popup */}
       {currentFeedbackData && (
         <ImmediateFeedback
+          key={`feedback-q${currentQuestionIndex}`} // Unique key per question to ensure fresh component for each question
           isVisible={showImmediateFeedback}
           isCorrect={currentFeedbackData.isCorrect}
           question={currentFeedbackData.question}
@@ -1342,6 +1690,8 @@ const Measurement = ({ topic, user, navigateTo }) => {
         return textInput.trim() !== '';
       case 'tick_cross':
         return selectedItems.size > 0;
+      case 'sort_2':
+        return sortedItems.length === currentQuestion.items.length;
       default:
         return true;
     }

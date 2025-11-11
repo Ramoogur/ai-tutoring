@@ -55,6 +55,26 @@ const App = () => {
       // Check if there's a history state, otherwise default to dashboard
       const initialPage = window.history.state?.page || 'dashboard';
       setCurrentPage(initialPage);
+      
+      // Restore quiz topic from sessionStorage if on quiz page
+      if (initialPage === 'quiz') {
+        const savedTopic = sessionStorage.getItem('currentQuizTopic');
+        if (savedTopic) {
+          try {
+            setQuizTopic(JSON.parse(savedTopic));
+            console.log('✅ Quiz topic restored from sessionStorage');
+          } catch (error) {
+            console.error('Error restoring quiz topic:', error);
+            // If can't restore topic, redirect to dashboard
+            setCurrentPage('dashboard');
+            sessionStorage.removeItem('currentQuizTopic');
+          }
+        } else {
+          // No saved topic found, redirect to dashboard
+          console.warn('⚠️ No quiz topic found in sessionStorage, redirecting to dashboard');
+          setCurrentPage('dashboard');
+        }
+      }
     }
   }, []);
 
@@ -64,8 +84,24 @@ const App = () => {
       if (event.state && event.state.page) {
         setCurrentPage(event.state.page);
         // Restore quiz topic if navigating back to quiz
-        if (event.state.page === 'quiz' && event.state.quizTopic) {
-          setQuizTopic(event.state.quizTopic);
+        if (event.state.page === 'quiz') {
+          if (event.state.quizTopic) {
+            setQuizTopic(event.state.quizTopic);
+          } else {
+            // Try to restore from sessionStorage
+            const savedTopic = sessionStorage.getItem('currentQuizTopic');
+            if (savedTopic) {
+              try {
+                setQuizTopic(JSON.parse(savedTopic));
+              } catch (error) {
+                console.error('Error restoring quiz topic:', error);
+                setCurrentPage('dashboard');
+              }
+            } else {
+              // No topic available, redirect to dashboard
+              setCurrentPage('dashboard');
+            }
+          }
         }
       } else {
         setCurrentPage('landing');
@@ -101,6 +137,11 @@ const App = () => {
   };
 
   const navigateTo = (page) => {
+    // Clear quiz topic when navigating away from quiz
+    if (page !== 'quiz') {
+      sessionStorage.removeItem('currentQuizTopic');
+      setQuizTopic(null);
+    }
     setCurrentPage(page);
     window.history.pushState({ page }, '', window.location.href);
   };
@@ -108,6 +149,8 @@ const App = () => {
   const startQuiz = (topic) => {
     setQuizTopic(topic);
     setCurrentPage('quiz');
+    // Store topic in sessionStorage to persist across page reloads
+    sessionStorage.setItem('currentQuizTopic', JSON.stringify(topic));
     window.history.pushState({ page: 'quiz', quizTopic: topic }, '', window.location.href);
   };
 

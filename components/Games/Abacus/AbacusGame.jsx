@@ -258,12 +258,13 @@ const AbacusGame = ({ topic, user, navigateTo }) => {
     
     // Disable the row corresponding to the target number (if it exists)
     // Row index is target - 1 (e.g., target 5 = row index 4)
-    if (target <= 9) {
+    // Special case: Don't block row 1 when target is 1, as it's impossible to make 1 without it
+    if (target > 1 && target <= 9) {
       setDisabledRows([target - 1]);
       speak(`Make the number ${target}! The row ${target} is blocked, use other numbers!`);
       setFeedbackMessage(`🎯 Make ${target} without using row ${target}!`);
     } else {
-      // For target 10, no specific row to disable
+      // For target 1 or target 10, no specific row to disable
       setDisabledRows([]);
       speak(`Make the number ${target}!`);
       setFeedbackMessage(`🎯 Make ${target} using the beads!`);

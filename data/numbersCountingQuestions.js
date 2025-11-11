@@ -150,12 +150,13 @@ const numbersCountingQuestions = {
       answer: '3',
       difficulty: 'easy'
     },
-    // Matching
+    // Matching (count objects and choose correct number)
     {
       id: 17,
       type: 'matching',
       question: 'Count the triangles and choose the correct number',
       objects: 'triangle',
+      count: 3,
       numbers: ['2', '3', '4'],
       answer: '3',
       difficulty: 'easy'
@@ -165,6 +166,7 @@ const numbersCountingQuestions = {
       type: 'matching',
       question: 'Count the squares and choose the correct number',
       objects: 'square',
+      count: 4,
       numbers: ['3', '4', '5'],
       answer: '4',
       difficulty: 'easy'
@@ -347,12 +349,13 @@ const numbersCountingQuestions = {
       answer: '9',
       difficulty: 'medium'
     },
-    // Matching
+    // Matching (count objects and choose correct number)
     {
       id: 38,
       type: 'matching',
       question: 'Count the apples and choose the correct number',
       objects: 'apple',
+      count: 8,
       numbers: ['7', '8', '9'],
       answer: '8',
       difficulty: 'medium'
@@ -389,16 +392,7 @@ const numbersCountingQuestions = {
       answer: '10',
       difficulty: 'hard'
     },
-    {
-      id: 42,
-      type: 'counting',
-      question: 'How many objects are there? (Empty set - zero)',
-      objects: 'circle',
-      count: 0,
-      answer: '0',
-      difficulty: 'hard'
-    },
-    // Word Problems
+    // Word Problems (initial + added = total)
     {
       id: 43,
       type: 'word_problem',
@@ -406,6 +400,7 @@ const numbersCountingQuestions = {
       initial: 3,
       added: 2,
       target: 'apple',
+      count: 5,
       answer: '5',
       difficulty: 'hard'
     },
@@ -416,6 +411,7 @@ const numbersCountingQuestions = {
       initial: 4,
       added: 3,
       target: 'star',
+      count: 7,
       answer: '7',
       difficulty: 'hard'
     },
@@ -426,6 +422,7 @@ const numbersCountingQuestions = {
       initial: 5,
       added: 4,
       target: 'flower',
+      count: 9,
       answer: '9',
       difficulty: 'hard'
     },
